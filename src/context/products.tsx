@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import productsBg from "../assets/products-bg.png";
@@ -39,14 +39,16 @@ export default function Products() {
   const BULK_CATEGORY = "Bulk Herbal Products";
   const bulkNorm = normCategory(BULK_CATEGORY);
 
-  // ✅ Fetch like your category pages (GrowKits)
+  // ✅ Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
 
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,category,price,description,in_stock,stock_count,image_url,images,variants,created_at,active")
+        .select(
+          "id,name,category,price,description,in_stock,stock_count,image_url,images,variants,created_at,active"
+        )
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -165,7 +167,7 @@ export default function Products() {
     setSort("featured");
   };
 
-  // ✅ Same callback signature your ProductQuickView uses (from GrowKits)
+  // ✅ Same callback signature your ProductQuickView uses
   const addToCart = ({ product, qty, variant }: any) => {
     const fn =
       cart?.addToCart ||
@@ -343,7 +345,7 @@ export default function Products() {
           {!loading && (
             <div className="mb-4 text-sm text-white/70">
               Showing <span className="font-semibold text-white">{filtered.length}</span> of{" "}
-              <span className="font-semibold text-white">{base.length}</span> products
+              <span className="font-semibold text-white">{products.length}</span> products
             </div>
           )}
 
@@ -358,7 +360,12 @@ export default function Products() {
           ) : (
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p: any) => (
-                <ProductQuickView key={p.id} product={p} onAddToCart={addToCart} />
+                <ProductQuickView
+                  key={p.id}
+                  // ✅ Normalize in_stock so TS + ProductQuickView stop crying
+                  product={{ ...p, in_stock: !!p.in_stock }}
+                  onAddToCart={addToCart}
+                />
               ))}
             </div>
           )}

@@ -1,4 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
+import { useEffect } from "react";
+import { useMemo } from "react";
+import { useRef } from "react";
+
 import { Link } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import productsBg from "../assets/products-bg.png";

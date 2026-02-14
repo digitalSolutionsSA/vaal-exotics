@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 export type VariantUnit = "kg" | "l";
 
@@ -16,9 +16,9 @@ export type ShopProduct = {
   price: number;
   description?: string | null;
 
-  // Website “live” logic (your project still uses this sometimes)
-  in_stock: boolean;
-  stock_count: number;
+  // ✅ Match Supabase reality (nullable/optional)
+  in_stock?: boolean | null;
+  stock_count?: number | null;
 
   image_url?: string | null;
   images?: any; // jsonb array (or sometimes stringified JSON)
@@ -73,9 +73,7 @@ function coerceImages(raw: any): string[] {
     }
   }
 
-  return arr
-    .map((x) => String(x ?? "").trim())
-    .filter((x) => x.length > 0);
+  return arr.map((x) => String(x ?? "").trim()).filter((x) => x.length > 0);
 }
 
 function getImages(p: ShopProduct): string[] {
@@ -110,6 +108,18 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
 
   const isBulkHerbal = String(product.category ?? "").trim() === BULK_CATEGORY;
 
+  // ✅ Normalize stock values safely (prevents TS errors + runtime weirdness)
+  const stockCount = useMemo(() => {
+    const n = Number(product.stock_count ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }, [product.stock_count]);
+
+  const isInStock = useMemo(() => {
+    // If in_stock is null/undefined, treat it as false unless stockCount > 0
+    const flag = product.in_stock === true;
+    return flag && stockCount > 0;
+  }, [product.in_stock, stockCount]);
+
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
     return variants.find((v) => v.id === selectedVariantId) ?? null;
@@ -125,12 +135,14 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
     // 🚫 Bulk Herbal is enquiry-only, never cart
     if (isBulkHerbal) return false;
 
-    if (product.stock_count <= 0) return false;
+    // ✅ Require BOTH: in_stock flag AND stock_count > 0
+    if (!isInStock) return false;
+
     if (variants.length > 0 && !selectedVariant) return false;
     if (qty <= 0) return false;
-    if (qty > product.stock_count) return false;
+    if (qty > stockCount) return false;
     return true;
-  }, [isBulkHerbal, product.stock_count, variants.length, selectedVariant, qty]);
+  }, [isBulkHerbal, isInStock, variants.length, selectedVariant, qty, stockCount]);
 
   const openWhatsAppEnquiry = () => {
     const digits = toWaDigits(OWNER_WHATSAPP);
@@ -203,7 +215,7 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
               )}
 
               <div className="mt-1 text-[11px] text-white/45">
-                {isBulkHerbal ? "Enquiry only" : product.stock_count > 0 ? `${product.stock_count} in stock` : "Out of stock"}
+                {isBulkHerbal ? "Enquiry only" : isInStock ? `${stockCount} in stock` : "Out of stock"}
               </div>
             </div>
 
@@ -291,8 +303,8 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
                   <div className="mt-1 text-sm font-bold">
                     {isBulkHerbal
                       ? "This item is enquiry-only. Tap Enquire to WhatsApp us."
-                      : product.stock_count > 0
-                      ? `${product.stock_count} available`
+                      : isInStock
+                      ? `${stockCount} available`
                       : "Out of stock"}
                   </div>
                 </div>
@@ -336,7 +348,7 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
                         min={1}
                         className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
                       />
-                      <div className="mt-1 text-[11px] text-white/45">Max: {product.stock_count}</div>
+                      <div className="mt-1 text-[11px] text-white/45">Max: {stockCount}</div>
                     </div>
                   )}
 
@@ -362,7 +374,7 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
 
                 {!isBulkHerbal && !canAddToCart && (
                   <div className="mt-3 text-xs text-white/45">
-                    {product.stock_count <= 0
+                    {!isInStock
                       ? "This product is out of stock."
                       : variants.length > 0 && !selectedVariant
                       ? "Choose a variant first."

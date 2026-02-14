@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+import { useEffect } from "react";
+import { useMemo } from "react";  
 import { supabase } from "../lib/supabase";
 
 type ProductRow = {
