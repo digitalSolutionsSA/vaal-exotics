@@ -1,0 +1,18 @@
+/* Fonts MUST come first */
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Brand font token */
+:root {
+  --font-brand: "Montserrat", sans-serif;
+}
+
+/* Global responsiveness safety */
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
