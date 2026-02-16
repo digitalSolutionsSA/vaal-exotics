@@ -13,7 +13,7 @@ export default function Hero() {
       }}
     >
       {/* overlay + vignette */}
-      <div className="absolute inset-0 bg-black/65" />
+      <div className="absolute inset-0 bg-white/5" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.08)_0%,rgba(0,0,0,0.8)_55%,rgba(0,0,0,0.95)_100%)]" />
 
       <div className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:py-24">

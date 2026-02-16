@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type VariantUnit = "kg" | "l";
 
@@ -16,7 +16,6 @@ export type ShopProduct = {
   price: number;
   description?: string | null;
 
-  // ✅ Match Supabase reality (nullable/optional)
   in_stock?: boolean | null;
   stock_count?: number | null;
 
@@ -29,8 +28,10 @@ export type ShopProduct = {
 
 const BULK_CATEGORY = "Bulk Herbal Products";
 
-// ✅ Put the owner WhatsApp number in .env as:
-// VITE_VAAL_EXOTICS_WHATSAPP=+27XXXXXXXXX  (or 27XXXXXXXXX)
+// Brand accents (logo-ish)
+const BRAND_RED = "#C43A2F";
+const BRAND_BLUE = "#2F4D7A";
+
 const OWNER_WHATSAPP =
   (import.meta as any).env?.VITE_VAAL_EXOTICS_WHATSAPP ||
   (import.meta as any).env?.VITE_SHOP_WHATSAPP ||
@@ -61,10 +62,8 @@ function normalizeVariants(v: any): ProductVariant[] {
 
 function coerceImages(raw: any): string[] {
   let arr: any[] = [];
-
-  if (Array.isArray(raw)) {
-    arr = raw;
-  } else if (typeof raw === "string") {
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) arr = parsed;
@@ -72,7 +71,6 @@ function coerceImages(raw: any): string[] {
       // ignore
     }
   }
-
   return arr.map((x) => String(x ?? "").trim()).filter((x) => x.length > 0);
 }
 
@@ -94,31 +92,68 @@ function minVariantPrice(list: ProductVariant[]) {
 type Props = {
   product: ShopProduct;
   onAddToCart?: (args: { product: ShopProduct; qty: number; variant?: ProductVariant | null }) => void;
+
+  // ✅ controlled modal support
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
+
+  // ✅ if true, we don't render the card at all (modal-only)
+  hideCard?: boolean;
+
+  // ✅ optional accent colour
+  accent?: "red" | "blue";
 };
 
-export default function ProductQuickView({ product, onAddToCart }: Props) {
+export default function ProductQuickView({
+  product,
+  onAddToCart,
+  open,
+  onOpenChange,
+  hideCard = false,
+  accent = "blue",
+}: Props) {
   const images = useMemo(() => getImages(product), [product]);
   const variants = useMemo(() => normalizeVariants(product.variants), [product]);
 
-  const [open, setOpen] = useState(false);
-  const [activeImg, setActiveImg] = useState(0);
+  // internal state fallback if not controlled
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
 
+  const setOpen = (next: boolean) => {
+    if (onOpenChange) onOpenChange(next);
+    if (open === undefined) setInternalOpen(next);
+  };
+
+  const [activeImg, setActiveImg] = useState(0);
   const [qty, setQty] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
 
   const isBulkHerbal = String(product.category ?? "").trim() === BULK_CATEGORY;
 
-  // ✅ Normalize stock values safely (prevents TS errors + runtime weirdness)
   const stockCount = useMemo(() => {
     const n = Number(product.stock_count ?? 0);
     return Number.isFinite(n) ? n : 0;
   }, [product.stock_count]);
 
   const isInStock = useMemo(() => {
-    // If in_stock is null/undefined, treat it as false unless stockCount > 0
+    // “reality” model: only true + stock_count > 0 counts as in stock
     const flag = product.in_stock === true;
     return flag && stockCount > 0;
   }, [product.in_stock, stockCount]);
+
+  // Init default variant when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveImg(0);
+    setQty(1);
+
+    if (variants.length > 0) {
+      setSelectedVariantId((prev) => prev || variants[0].id);
+    } else {
+      setSelectedVariantId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, variants.length, product.id]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -131,18 +166,21 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
     return { label: "", value: Number(product.price) };
   }, [variants, product.price]);
 
+  const exactPrice = useMemo(() => {
+    if (variants.length > 0) return selectedVariant?.price ?? displayPrice.value;
+    return displayPrice.value;
+  }, [variants.length, selectedVariant, displayPrice.value]);
+
   const canAddToCart = useMemo(() => {
-    // 🚫 Bulk Herbal is enquiry-only, never cart
     if (isBulkHerbal) return false;
-
-    // ✅ Require BOTH: in_stock flag AND stock_count > 0
     if (!isInStock) return false;
-
     if (variants.length > 0 && !selectedVariant) return false;
     if (qty <= 0) return false;
     if (qty > stockCount) return false;
     return true;
   }, [isBulkHerbal, isInStock, variants.length, selectedVariant, qty, stockCount]);
+
+  const accentColor = accent === "red" ? BRAND_RED : BRAND_BLUE;
 
   const openWhatsAppEnquiry = () => {
     const digits = toWaDigits(OWNER_WHATSAPP);
@@ -150,7 +188,6 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
       alert("Missing WhatsApp number. Set VITE_VAAL_EXOTICS_WHATSAPP in your .env file.");
       return;
     }
-
     const msg = `HI Vaal Exotics! I would like to enquire about ${product.name}.`;
     const url = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener,noreferrer");
@@ -167,103 +204,99 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
     setOpen(false);
   };
 
+  // Close on ESC
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
+
+  const setQtySafe = (next: number) => {
+    const n = Number(next);
+    if (!Number.isFinite(n)) return;
+    const min = 1;
+    const max = Math.max(1, stockCount || 1);
+    setQty(Math.min(Math.max(min, Math.floor(n)), max));
+  };
+
   return (
     <>
-      {/* CARD */}
-      <div className="group overflow-hidden rounded-3xl bg-black shadow-xl transition hover:-translate-y-1 hover:shadow-2xl">
-        {/* Image opens modal */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveImg(0);
-            setOpen(true);
-          }}
-          className="relative block w-full"
-          title="View product"
-        >
-          <div className="aspect-[4/3] w-full overflow-hidden">
-            {images[0] ? (
-              <img
-                src={images[0]}
-                alt={product.name}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-white/40">
-                No image yet
-              </div>
-            )}
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-        </button>
-
-        <div className="p-5">
-          <button type="button" onClick={() => setOpen(true)} className="text-left">
-            <h3 className="text-base font-extrabold text-white leading-snug">{product.name}</h3>
-          </button>
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-white">
-              {displayPrice.label ? (
-                <div className="text-sm font-semibold text-white/80">
-                  {displayPrice.label}{" "}
-                  <span className="text-lg font-extrabold text-white">R{formatZar(displayPrice.value)}</span>
-                </div>
-              ) : (
-                <div className="text-lg font-extrabold text-white">R{formatZar(displayPrice.value)}</div>
-              )}
-
-              <div className="mt-1 text-[11px] text-white/45">
-                {isBulkHerbal ? "Enquiry only" : isInStock ? `${stockCount} in stock` : "Out of stock"}
-              </div>
-            </div>
-
-            {/* Primary CTA */}
-            <button
-              type="button"
-              onClick={() => (isBulkHerbal ? openWhatsAppEnquiry() : setOpen(true))}
-              className="rounded-xl bg-[#C43A2F] px-4 py-2 text-xs font-extrabold text-white transition hover:bg-[#a83228]"
-            >
-              {isBulkHerbal ? "Enquire" : "Add to cart"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* MODAL */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      {/* Optional CARD (hidden on GrowKits because you said popup only) */}
+      {!hideCard && (
+        <div className="group overflow-hidden rounded-2xl bg-white/95 backdrop-blur border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:shadow-[0_16px_45px_rgba(0,0,0,0.14)] transition-shadow">
           <button
             type="button"
-            className="absolute inset-0 bg-black/70"
+            onClick={() => setOpen(true)}
+            className="relative block w-full text-left"
+            title="View product"
+          >
+            <div className="aspect-[4/3] w-full overflow-hidden bg-black/5">
+              {images[0] ? (
+                <img
+                  src={images[0]}
+                  alt={product.name}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
+                  No image yet
+                </div>
+              )}
+            </div>
+          </button>
+
+          <div className="p-4">
+            <h3 className="text-sm font-extrabold text-black leading-snug line-clamp-2">{product.name}</h3>
+            <div className="mt-2 text-lg font-extrabold" style={{ color: accentColor }}>
+              R{formatZar(displayPrice.value)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ MODAL: this is what you want to show when clicking a product */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          {/* backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/35"
             onClick={() => setOpen(false)}
             aria-label="Close"
           />
 
-          <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-black text-white shadow-2xl">
-            <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
-              {/* left: gallery */}
-              <div className="border-b border-white/10 md:border-b-0 md:border-r">
-                <div className="aspect-[4/3] w-full bg-white/5">
+          <div className="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* LEFT: big image */}
+              <div className="relative bg-black/[0.03]">
+                <div className="aspect-square md:aspect-[4/5] w-full">
                   {images[activeImg] ? (
-                    <img src={images[activeImg]} alt={product.name} className="h-full w-full object-cover" />
+                    <img
+                      src={images[activeImg]}
+                      alt={product.name}
+                      className="h-full w-full object-contain p-6"
+                    />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-white/40">
+                    <div className="flex h-full w-full items-center justify-center text-sm text-black/40">
                       No image yet
                     </div>
                   )}
                 </div>
 
+                {/* thumbnails */}
                 {images.length > 1 && (
-                  <div className="flex gap-2 p-3">
-                    {images.map((src, idx) => (
+                  <div className="flex gap-2 px-6 pb-6">
+                    {images.slice(0, 6).map((src, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setActiveImg(idx)}
-                        className={`h-16 w-16 overflow-hidden rounded-xl border ${
-                          idx === activeImg ? "border-white/50" : "border-white/10"
+                        className={`h-14 w-14 overflow-hidden rounded-xl border transition ${
+                          idx === activeImg ? "border-black/40" : "border-black/10 hover:border-black/25"
                         }`}
                         title={`Image ${idx + 1}`}
                       >
@@ -274,111 +307,101 @@ export default function ProductQuickView({ product, onAddToCart }: Props) {
                 )}
               </div>
 
-              {/* right: info */}
-              <div className="p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-extrabold">{product.name}</h2>
-                    <div className="mt-1 text-xs text-white/50">{product.category}</div>
-                  </div>
+              {/* RIGHT: details */}
+              <div className="p-7">
+                <div className="mt-2 flex items-start justify-between gap-3">
+                  <h2 className="text-2xl font-extrabold tracking-tight text-black leading-snug">
+                    {product.name}
+                  </h2>
 
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black/60 hover:bg-black/5 transition"
+                    aria-label="Close popup"
                   >
-                    Close
+                    ✕
                   </button>
                 </div>
 
-                {product.description ? (
-                  <p className="mt-4 text-sm text-white/75 whitespace-pre-wrap">{product.description}</p>
-                ) : (
-                  <p className="mt-4 text-sm text-white/45">No description yet.</p>
-                )}
-
-                {/* stock or enquiry note */}
-                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs font-semibold text-white/70">{isBulkHerbal ? "Ordering" : "Stock"}</div>
-                  <div className="mt-1 text-sm font-bold">
-                    {isBulkHerbal
-                      ? "This item is enquiry-only. Tap Enquire to WhatsApp us."
-                      : isInStock
-                      ? `${stockCount} available`
-                      : "Out of stock"}
-                  </div>
+                {/* price (brand blue/red) */}
+                <div className="mt-3 text-xl font-extrabold" style={{ color: accentColor }}>
+                  R{formatZar(exactPrice)}
                 </div>
 
-                {/* variants only matter for cartable items */}
-                {!isBulkHerbal && variants.length > 0 && (
-                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="text-xs font-semibold text-white/70">Variants</div>
+                <div className="mt-4 text-sm leading-relaxed text-black/70 whitespace-pre-wrap">
+                  {product.description || "No description yet."}
+                </div>
 
+                {/* Variant dropdown */}
+                {variants.length > 0 && (
+                  <div className="mt-6">
+                    <div className="text-sm font-semibold text-black/80">Variety/Species</div>
                     <select
                       value={selectedVariantId}
                       onChange={(e) => setSelectedVariantId(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                      className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm text-black outline-none"
+                      style={{ borderColor: accentColor }}
                     >
-                      <option value="" className="bg-black">
-                        Select a variant…
-                      </option>
                       {variants.map((v) => (
-                        <option key={v.id} value={v.id} className="bg-black">
+                        <option key={v.id} value={v.id}>
                           {v.size}
                           {v.unit} • R{formatZar(v.price)}
                         </option>
                       ))}
                     </select>
-
-                    <div className="mt-2 text-[11px] text-white/45">
-                      Variants have different prices. Pick one before adding to cart.
-                    </div>
                   </div>
                 )}
 
-                {/* qty + price + action */}
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                {/* Qty + CTA row */}
+                <div className="mt-6 flex flex-wrap items-center gap-4">
                   {!isBulkHerbal && (
-                    <div className="w-full sm:w-40">
-                      <div className="text-xs font-semibold text-white/70">Quantity</div>
-                      <input
-                        value={qty}
-                        onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
-                        type="number"
-                        min={1}
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
-                      />
-                      <div className="mt-1 text-[11px] text-white/45">Max: {stockCount}</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQtySafe(qty - 1)}
+                        className="h-10 w-10 rounded-full border border-black/15 bg-white text-black/70 hover:bg-black/5"
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <div className="min-w-[28px] text-center text-sm font-semibold text-black/70">
+                        {qty}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setQtySafe(qty + 1)}
+                        className="h-10 w-10 rounded-full border border-black/15 bg-white text-black/70 hover:bg-black/5"
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
                     </div>
                   )}
-
-                  <div className="flex-1">
-                    <div className="text-xs font-semibold text-white/70">Price</div>
-                    <div className="mt-2 text-2xl font-extrabold">
-                      R{formatZar(!isBulkHerbal && selectedVariant ? selectedVariant.price : displayPrice.value)}
-                    </div>
-                    {!isBulkHerbal && variants.length > 0 && !selectedVariant && (
-                      <div className="mt-1 text-[11px] text-white/45">Select a variant to confirm exact price.</div>
-                    )}
-                  </div>
 
                   <button
                     type="button"
                     disabled={!isBulkHerbal && !canAddToCart}
                     onClick={handleAdd}
-                    className="rounded-2xl bg-[#C43A2F] px-6 py-3 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-40 disabled:hover:bg-[#C43A2F]"
+                    className="rounded-xl px-6 py-3 text-sm font-extrabold text-white transition disabled:opacity-40"
+                    style={{
+                      backgroundColor: accentColor,
+                    }}
                   >
-                    {isBulkHerbal ? "Enquire" : "Add to cart"}
+                    {isBulkHerbal ? "Enquire" : "Add To Basket"}
                   </button>
                 </div>
 
-                {!isBulkHerbal && !canAddToCart && (
-                  <div className="mt-3 text-xs text-white/45">
-                    {!isInStock
-                      ? "This product is out of stock."
-                      : variants.length > 0 && !selectedVariant
-                      ? "Choose a variant first."
-                      : "Quantity exceeds stock."}
+                {/* out of stock message */}
+                {!isBulkHerbal && !isInStock && (
+                  <div className="mt-4 text-xs font-semibold" style={{ color: BRAND_RED }}>
+                    This product is out of stock.
+                  </div>
+                )}
+
+                {!isBulkHerbal && !canAddToCart && isInStock && (
+                  <div className="mt-2 text-xs text-black/50">
+                    {variants.length > 0 && !selectedVariant ? "Choose a variant first." : "Quantity exceeds stock."}
                   </div>
                 )}
               </div>
