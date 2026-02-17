@@ -1,117 +1,219 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import featuredBg from "../../assets/featured-bg.png";
 
-type Item = {
+import growImg from "../../assets/grow-bg.png";
+import grainImg from "../../assets/grain-bg.png";
+import suppliesImg from "../../assets/supplies-bg.png";
+import medicinalImg from "../../assets/medicinal-bg.png";
+import herbalImg from "../../assets/herbal-bg.png";
+
+type Cat = {
   title: string;
-  desc: string;
-  href: string;
-  image: string;
+  subtitle: string;
   bullets: string[];
+  to: string;
+  image: string;
 };
 
-const items: Item[] = [
+const CATS: Cat[] = [
   {
-    title: "Mushroom Grow Kits",
-    desc: "Beginner-friendly kits for clean home harvests.",
-    href: "/mushrooms/grow-kits",
-    image: "/images/grow-kits.png",
+    title: "Grow Kits",
+    subtitle: "Beginner-friendly kits for clean home harvests.",
     bullets: ["Great for beginners", "Step-by-step simple", "Perfect gifts"],
+    to: "/shop/growkits",
+    image: growImg,
   },
   {
     title: "Grain & Cultures",
-    desc: "Reliable genetics and spawn to level up your grows.",
-    href: "/mushrooms/grain-and-cultures",
-    image: "/images/grain.png",
+    subtitle: "Reliable genetics and spawn to level up your grows.",
     bullets: ["Quality cultures", "Clean grain options", "Consistent results"],
+    to: "/shop/grain-and-cultures",
+    image: grainImg,
   },
   {
     title: "Cultivation Supplies",
-    desc: "Bags, tools, substrates, and the stuff that actually matters.",
-    href: "/mushrooms/cultivation-supplies",
-    image: "/images/supplies.png",
+    subtitle: "Bags, tools, substrates, and the stuff that actually matters.",
     bullets: ["Grow-ready supplies", "Stock up easily", "Better yields"],
+    to: "/shop/cultivation-supplies",
+    image: suppliesImg,
   },
   {
     title: "Medicinal Supplements",
-    desc: "Functional mushroom products for daily routines.",
-    href: "/mushrooms/medicinal-supplements",
-    image: "/images/supplements.png",
+    subtitle: "Functional mushroom products for daily routines.",
     bullets: ["Everyday support", "Easy routines", "Trusted ingredients"],
+    to: "/shop/medicinal-supplements",
+    image: medicinalImg,
   },
   {
-    title: "Bulk Herbal Products",
-    desc: "Bulk herbs & botanicals for serious stock-ups.",
-    href: "/bulk-herbal",
-    image: "/images/herbal.jpeg",
+    title: "Bulk Herbal",
+    subtitle: "Bulk herbs & botanicals for serious stock-ups.",
     bullets: ["Bulk-friendly", "Great value", "Wide selection"],
+    to: "/shop/bulk-herbal",
+    image: herbalImg,
   },
 ];
 
-export default function FeaturedCategories() {
+// ── Per-card scroll-triggered fade-up ─────────────────────────────────────
+function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
-    <section
-      className="relative w-full py-20"
+    <div
+      ref={ref}
       style={{
-        backgroundImage: `url(${featuredBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        transitionProperty: "opacity, transform",
+        transitionDuration: "680ms",
+        transitionDelay: `${delay}ms`,
+        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0px)" : "translateY(40px)",
       }}
     >
-      {/* Let the background actually show */}
-      <div className="absolute inset-0 bg-white/35" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.40)_0%,rgba(255,255,255,0.70)_55%,rgba(255,255,255,0.85)_100%)]" />
+      <Link to={cat.to} className="group block h-full">
+        <div
+          className="
+            relative flex flex-col h-full overflow-hidden rounded-xl
+            border border-white/10
+            shadow-[0_10px_40px_rgba(0,0,0,0.55)]
+            transition-all duration-300 ease-out
+            group-hover:-translate-y-2
+            group-hover:shadow-[0_20px_60px_rgba(210,44,38,0.4)]
+            group-hover:border-white/25
+          "
+          style={{ background: "#0c0c10" }}
+        >
+          {/* Image */}
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/3" }}>
+            <img
+              src={cat.image}
+              alt={cat.title}
+              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+              style={{ filter: "brightness(0.85) saturate(0.7)" }}
+              loading="lazy"
+            />
+            <div
+              className="absolute inset-x-0 bottom-0 h-20"
+              style={{ background: "linear-gradient(to bottom, transparent, #1e2a40)" }}
+            />
+          </div>
 
-      {/* Centered container */}
-      <div className="relative mx-auto w-full max-w-[1600px] px-6 sm:px-10 xl:px-16">
-        {/* Heading */}
-        <div className="mb-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-black/50">
-            Featured Categories
-          </p>
-          <h2 className="mt-3 text-3xl font-extrabold text-black">
-            Shop by category
-          </h2>
+          {/* Content */}
+          <div
+            className="flex flex-col flex-1 px-5 pt-4 pb-6"
+            style={{
+              background:
+                "linear-gradient(170deg, #1e2a40 0%, #3c496b 40%, #8b1a1a 75%, #d22c26 100%)",
+            }}
+          >
+            <h3 className="text-lg font-bold tracking-wide text-white leading-tight">
+              {cat.title}
+            </h3>
+
+            <div className="mt-3 mb-3 h-px w-full bg-white/15" />
+
+            <p className="text-sm text-white/70 leading-relaxed">{cat.subtitle}</p>
+
+            <ul className="mt-4 space-y-2 flex-1">
+              {cat.bullets.map((b) => (
+                <li key={b} className="flex items-center gap-2.5 text-sm text-white/85">
+                  <span
+                    className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                    style={{ background: "#d22c26" }}
+                  />
+                  {b}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-5 flex items-center gap-1.5 text-sm font-semibold text-white/70 group-hover:text-white transition-colors duration-200">
+              <span>Shop now</span>
+              <svg
+                className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
         </div>
+      </Link>
+    </div>
+  );
+}
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 justify-items-center gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {items.map((item) => (
-            <Link
-              key={item.title}
-              to={item.href}
-              className="group w-full max-w-[320px] rounded-3xl bg-black p-6 shadow-xl transition duration-300 hover:-translate-y-2 hover:shadow-2xl"
-            >
-              {/* Image */}
-              <div className="relative mb-5 h-40 w-full overflow-hidden rounded-2xl">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-              </div>
+// ── Heading with its own fade-down ─────────────────────────────────────────
+function AnimatedHeading() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
 
-              {/* Title */}
-              <h3 className="text-lg font-bold text-white">{item.title}</h3>
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.2 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
-              {/* Description */}
-              <p className="mt-2 text-sm text-white/70">{item.desc}</p>
+  return (
+    <div
+      ref={ref}
+      className="text-center mb-12"
+      style={{
+        transitionProperty: "opacity, transform",
+        transitionDuration: "700ms",
+        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0px)" : "translateY(20px)",
+      }}
+    >
+      <h2
+        className="text-4xl sm:text-5xl font-extrabold uppercase tracking-widest text-white"
+        style={{ textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}
+      >
+        Shop by Category
+      </h2>
+    </div>
+  );
+}
 
-              {/* Bullets */}
-              <ul className="mt-4 space-y-2 text-sm text-white/60">
-                {item.bullets.map((b) => (
-                  <li key={b} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
-                    {b}
-                  </li>
-                ))}
-              </ul>
+// ── Main export ────────────────────────────────────────────────────────────
+export default function FeaturedCategories() {
+  return (
+    <section className="relative w-full min-h-screen flex items-center">
+      <div className="w-full px-6 sm:px-10 xl:px-16 py-16 sm:py-20">
+        <AnimatedHeading />
 
-              <div className="mt-6 text-sm font-semibold text-white/80 transition group-hover:text-white">
-                Browse →
-              </div>
-            </Link>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {CATS.map((cat, i) => (
+            <AnimatedCard key={cat.title} cat={cat} delay={i * 130} />
           ))}
         </div>
       </div>

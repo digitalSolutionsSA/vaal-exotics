@@ -116,6 +116,7 @@ function minVariantPrice(variants: ProductVariant[]): number | null {
 function toInStock(stockCount: number) {
   return Number(stockCount) > 0;
 }
+
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,9 +169,7 @@ export default function AdminProducts() {
   const [mImages, setMImages] = useState<string[]>([]);
   const [mError, setMError] = useState<string>("");
 
-  const isInStock = (p: any) =>
-  Number(p?.stock_count ?? 0) > 0;
-
+  const isInStock = (p: any) => Number(p?.stock_count ?? 0) > 0;
 
   const openProduct = useMemo(() => {
     if (!openProductId) return null;
@@ -271,11 +270,16 @@ export default function AdminProducts() {
 
   const removeVariant = (id: string) => setVariants((prev) => prev.filter((v) => v.id !== id));
 
-  // ✅ Supabase helpers
+  // ✅ Supabase helpers (FIXED: remove .single() to avoid "Cannot coerce..." errors)
   const addProduct = async (payload: any) => {
-    const { data, error } = await supabase.from("products").insert(payload).select("*").single();
+    const { data, error } = await supabase.from("products").insert(payload).select("*");
     if (error) throw error;
-    return data;
+
+    if (!Array.isArray(data) || data.length !== 1) {
+      throw new Error("Product insert failed (RLS/policy or unexpected response).");
+    }
+
+    return data[0];
   };
 
   const updateProduct = async (id: string, patch: any) => {
@@ -283,11 +287,18 @@ export default function AdminProducts() {
       .from("products")
       .update(patch)
       .eq("id", id)
-      .select("*")
-      .single();
+      .select("*");
+
     if (error) throw error;
-    setProducts((prev) => prev.map((p) => (p.id === id ? data : p)));
-    return data;
+
+    if (!Array.isArray(data) || data.length !== 1) {
+      // This is the big one: if RLS blocks update, data will be []
+      throw new Error("Update failed (no permission via RLS, or product not found).");
+    }
+
+    const row = data[0];
+    setProducts((prev) => prev.map((p) => (p.id === id ? row : p)));
+    return row;
   };
 
   const deleteProduct = async (id: string) => {
@@ -371,6 +382,7 @@ export default function AdminProducts() {
       setBusy(false);
     }
   };
+
   // ✅ Modal image actions
   const triggerModalFilePicker = () => modalFileInputRef.current?.click();
 
@@ -418,7 +430,6 @@ export default function AdminProducts() {
   };
 
   const removeModalVariant = (id: string) => setMVariants((prev) => prev.filter((v) => v.id !== id));
-
   const saveModal = async () => {
     if (!openProductId) return;
     setMError("");
@@ -484,6 +495,7 @@ export default function AdminProducts() {
       setBusy(false);
     }
   };
+
   // FAQ helpers
   const resetFaqForm = () => {
     setFaqQ("");

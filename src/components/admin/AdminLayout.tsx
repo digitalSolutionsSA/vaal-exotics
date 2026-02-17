@@ -1,9 +1,18 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { logoutAdmin } from "../../lib/adminAuth";
+import { supabase } from "../../lib/supabase";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+
+  const onLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // blunt, reliable, and clears any “stuck” state
+      navigate("/admin-login", { replace: true });
+    }
+  };
 
   return (
     <div className="min-h-[calc(100vh-7rem)] bg-black text-white">
@@ -30,10 +39,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
 
             <button
-              onClick={() => {
-                logoutAdmin();
-                navigate("/admin");
-              }}
+              type="button"
+              onClick={onLogout}
               className="rounded-lg bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white hover:bg-[#a83228] transition"
             >
               Logout

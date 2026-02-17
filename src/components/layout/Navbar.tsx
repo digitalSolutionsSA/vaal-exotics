@@ -90,7 +90,7 @@ export default function Navbar() {
                 className="h-14 w-auto object-contain"
               />
               <span className="hidden md:block text-black font-extrabold tracking-widest">
-                VAAL EXOTICS
+                
               </span>
             </Link>
 

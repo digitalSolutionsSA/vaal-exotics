@@ -34,28 +34,22 @@ function AppShell() {
   const isHome = pathname === "/";
 
   return (
-    // ✅ flex layout keeps footer stable and prevents weird page height behavior
-    <div className="min-h-screen flex flex-col text-black">
+    <div className="min-h-screen flex flex-col bg-transparent">
       <Navbar />
 
-      {/* ✅ Main content grows; footer stays */}
       <div className="flex-1">
-        {/* ✅ Navbar offset: consistent + responsive */}
         <div className={isHome ? "pt-0" : "pt-16 sm:pt-20"}>
           <Routes>
-            {/* Core */}
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<Products />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/about" element={<About />} />
 
-            {/* Cart / Checkout */}
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order/success" element={<OrderSuccess />} />
 
-            {/* Admin */}
             <Route path="/admin" element={<AdminLogin />} />
             <Route
               path="/admin/products"
@@ -68,30 +62,25 @@ function AppShell() {
               }
             />
 
-            {/* Categories */}
             <Route path="/mushrooms/grow-kits" element={<GrowKits />} />
             <Route path="/mushrooms/grain-and-cultures" element={<GrainCultures />} />
             <Route path="/mushrooms/cultivation-supplies" element={<CultivationSupplies />} />
             <Route path="/mushrooms/medicinal-supplements" element={<MedicinalSupplements />} />
             <Route path="/bulk-herbal" element={<BulkHerbal />} />
 
-            {/* Backward compatibility */}
             <Route
               path="/medicinal"
               element={<Navigate to="/mushrooms/medicinal-supplements" replace />}
             />
             <Route path="/herbal" element={<Navigate to="/bulk-herbal" replace />} />
 
-            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </div>
 
-      {/* ✅ Footer stays. No disappearing acts. */}
       <Footer />
 
-      {/* Floating WhatsApp Button (global) */}
       <WhatsAppFloatingButton
         phoneNumber="27639034514"
         message="Hi Vaal Exotics 👋 I'm interested in your products. Can you assist me?"
