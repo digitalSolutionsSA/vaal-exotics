@@ -53,23 +53,74 @@ const CATS: Cat[] = [
   },
 ];
 
-// ── Per-card scroll-triggered fade-up ─────────────────────────────────────
-function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
+const GRADIENT =
+  "linear-gradient(170deg, #1e2a40 0%, #3c496b 40%, #8b1a1a 75%, #d22c26 100%)";
+
+// ── Heading with fade-down ────────────────────────────────────────────────
+function AnimatedHeading() {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [inView, setInView] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.12 }
+      (entries) => setInView(entries[0]?.isIntersecting ?? false),
+      { threshold: 0.25, rootMargin: "80px 0px -80px 0px" }
     );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="text-center mb-12"
+      style={{
+        transitionProperty: "opacity, transform",
+        transitionDuration: inView ? "750ms" : "300ms",
+        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+        opacity: inView ? 1 : 0,
+        transform: inView ? "translateY(0px)" : "translateY(-18px)",
+        willChange: "opacity, transform",
+      }}
+    >
+      <h2
+          className="text-4xl sm:text-5xl font-extrabold uppercase tracking-widest text-white text-center"
+          style={{
+            textShadow:
+              "0 18px 60px rgba(0,0,0,0.95), 0 6px 18px rgba(0,0,0,0.88), 0 0 34px rgba(0,0,0,0.80)",
+          }}
+        >
+          Shop by category
+        </h2>
+
+      <p className="mt-3 text-sm sm:text-base text-white/70">
+        Pick what you need and jump straight into the good stuff.
+      </p>
+    </div>
+  );
+}
+
+// ── Card: fall-from-sky animation, staggered ──────────────────────────────
+function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => setInView(entries[0]?.isIntersecting ?? false),
+      {
+        threshold: 0.18,
+        rootMargin: "120px 0px -120px 0px",
+      }
+    );
+
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -79,25 +130,28 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
       ref={ref}
       style={{
         transitionProperty: "opacity, transform",
-        transitionDuration: "680ms",
-        transitionDelay: `${delay}ms`,
-        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0px)" : "translateY(40px)",
+        transitionDuration: inView ? "900ms" : "350ms",
+        transitionDelay: inView ? `${delay}ms` : "0ms",
+        transitionTimingFunction: inView
+          ? "cubic-bezier(0.12, 0.85, 0.2, 1)"
+          : "cubic-bezier(0.2, 0, 0.2, 1)",
+        opacity: inView ? 1 : 0,
+        transform: inView
+          ? "translateY(0px) scale(1)"
+          : "translateY(-90px) scale(0.985)",
+        willChange: "opacity, transform",
       }}
     >
       <Link to={cat.to} className="group block h-full">
         <div
           className="
             relative flex flex-col h-full overflow-hidden rounded-xl
-            border border-white/10
-            shadow-[0_10px_40px_rgba(0,0,0,0.55)]
+            border border-black/10 bg-white
+            shadow-[0_12px_40px_rgba(0,0,0,0.25)]
             transition-all duration-300 ease-out
             group-hover:-translate-y-2
-            group-hover:shadow-[0_20px_60px_rgba(210,44,38,0.4)]
-            group-hover:border-white/25
+            group-hover:shadow-[0_22px_70px_rgba(0,0,0,0.35)]
           "
-          style={{ background: "#0c0c10" }}
         >
           {/* Image */}
           <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/3" }}>
@@ -105,44 +159,40 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
               src={cat.image}
               alt={cat.title}
               className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-              style={{ filter: "brightness(0.85) saturate(0.7)" }}
               loading="lazy"
-            />
-            <div
-              className="absolute inset-x-0 bottom-0 h-20"
-              style={{ background: "linear-gradient(to bottom, transparent, #1e2a40)" }}
+              draggable={false}
             />
           </div>
 
-          {/* Content */}
-          <div
-            className="flex flex-col flex-1 px-5 pt-4 pb-6"
-            style={{
-              background:
-                "linear-gradient(170deg, #1e2a40 0%, #3c496b 40%, #8b1a1a 75%, #d22c26 100%)",
-            }}
-          >
-            <h3 className="text-lg font-bold tracking-wide text-white leading-tight">
+          {/* Content (white block + gradient text) */}
+          <div className="flex flex-col flex-1 px-6 pt-5 pb-7">
+            <h3
+              className="text-lg font-extrabold tracking-wide leading-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: GRADIENT }}
+            >
               {cat.title}
             </h3>
 
-            <div className="mt-3 mb-3 h-px w-full bg-white/15" />
+            <div className="mt-3 mb-3 h-px w-full bg-black/10" />
 
-            <p className="text-sm text-white/70 leading-relaxed">{cat.subtitle}</p>
+            <p className="text-sm text-black/60 leading-relaxed">{cat.subtitle}</p>
 
             <ul className="mt-4 space-y-2 flex-1">
               {cat.bullets.map((b) => (
-                <li key={b} className="flex items-center gap-2.5 text-sm text-white/85">
+                <li key={b} className="flex items-center gap-2.5 text-sm text-black/75">
                   <span
                     className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{ background: "#d22c26" }}
+                    style={{ backgroundImage: GRADIENT }}
                   />
                   {b}
                 </li>
               ))}
             </ul>
 
-            <div className="mt-5 flex items-center gap-1.5 text-sm font-semibold text-white/70 group-hover:text-white transition-colors duration-200">
+            <div
+              className="mt-5 flex items-center gap-1.5 text-sm font-semibold bg-clip-text text-transparent group-hover:opacity-80 transition-opacity"
+              style={{ backgroundImage: GRADIENT }}
+            >
               <span>Shop now</span>
               <svg
                 className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1"
@@ -161,49 +211,6 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
   );
 }
 
-// ── Heading with its own fade-down ─────────────────────────────────────────
-function AnimatedHeading() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className="text-center mb-12"
-      style={{
-        transitionProperty: "opacity, transform",
-        transitionDuration: "700ms",
-        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0px)" : "translateY(20px)",
-      }}
-    >
-      <h2
-        className="text-4xl sm:text-5xl font-extrabold uppercase tracking-widest text-white"
-        style={{ textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}
-      >
-        Shop by Category
-      </h2>
-    </div>
-  );
-}
-
 // ── Main export ────────────────────────────────────────────────────────────
 export default function FeaturedCategories() {
   return (
@@ -211,9 +218,9 @@ export default function FeaturedCategories() {
       <div className="w-full px-6 sm:px-10 xl:px-16 py-16 sm:py-20">
         <AnimatedHeading />
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {CATS.map((cat, i) => (
-            <AnimatedCard key={cat.title} cat={cat} delay={i * 130} />
+            <AnimatedCard key={cat.title} cat={cat} delay={i * 140} />
           ))}
         </div>
       </div>

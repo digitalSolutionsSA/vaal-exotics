@@ -1,9 +1,26 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
+type LocationState = {
+  from?: string;
+};
 
 export default function AdminLogin() {
   const nav = useNavigate();
+  const location = useLocation();
+
+  // If guard redirected here, it should pass state.from.
+  // Otherwise default to admin landing.
+  const from = useMemo(() => {
+    const state = (location.state as LocationState | null) ?? null;
+    const candidate = state?.from;
+    // Only allow internal paths (basic safety + avoids weird redirects)
+    if (candidate && typeof candidate === "string" && candidate.startsWith("/")) {
+      return candidate;
+    }
+    return "/admin/products";
+  }, [location.state]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,11 +29,38 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // If already logged in, go straight to admin.
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav("/admin", { replace: true });
+    // If already logged in, go straight to admin destination.
+    let alive = true;
+
+    (async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!alive) return;
+
+      if (error) {
+        console.error("[AdminLogin] getSession error:", error);
+        return;
+      }
+
+      if (data.session) {
+        nav(from, { replace: true });
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [nav, from]);
+
+  // Optional debug: keep this while testing, remove later if you want.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[Auth]", event, session?.user?.email ?? null);
     });
-  }, [nav]);
+
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,17 +68,33 @@ export default function AdminLogin() {
     setBusy(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password,
       });
 
       if (error) throw error;
-      if (!data.session) throw new Error("No session returned. Auth failed.");
 
-      nav("/admin", { replace: true });
+      // Double-check session after sign-in (more reliable)
+      const { data: s2, error: e2 } = await supabase.auth.getSession();
+      if (e2) throw e2;
+
+      const session = s2.session ?? data.session;
+      if (!session) {
+        throw new Error(
+          "Signed in but no session found. Check Supabase URL/key and auth storage."
+        );
+      }
+
+      console.log("[AdminLogin] signed in as:", session.user.email);
+      console.log("[AdminLogin] access token exists:", !!session.access_token);
+
+      // Go to intended destination or admin landing.
+      nav(from, { replace: true });
     } catch (err: any) {
-      console.error(err);
+      console.error("[AdminLogin] sign-in error:", err);
       setError(err?.message ?? "Login failed");
     } finally {
       setBusy(false);
@@ -64,6 +124,7 @@ export default function AdminLogin() {
             autoComplete="email"
             className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
           />
+
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}

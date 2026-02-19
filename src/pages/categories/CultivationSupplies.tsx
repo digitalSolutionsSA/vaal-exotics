@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import suppliesBg from "../../assets/supplies-bg.png";
+import suppliesBg from "../../assets/new-bg.png";
 import ProductQuickView from "../../components/ProductQuickView";
 import { CATEGORY, normCategory } from "../../lib/category";
 
@@ -151,9 +151,12 @@ export default function CultivationSupplies() {
     console.log("ADD TO CART:", { productId: product.id, qty, variant });
   };
 
+  const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
+  const subShadow = "0 2px 12px rgba(0,0,0,0.55)";
+
   return (
     <main className="relative min-h-screen text-black">
-      {/* Background */}
+      {/* ✅ Background now matches ALL other pages */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -164,29 +167,42 @@ export default function CultivationSupplies() {
         }}
       />
 
-      {/* White overlays */}
-      <div className="fixed inset-0 z-0 bg-white/55 pointer-events-none" />
-      <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.65)_0%,rgba(255,255,255,0.85)_55%,rgba(255,255,255,0.95)_100%)]" />
+      {/* ✅ Removed the white overlays (they were killing consistency) */}
 
       {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-black/50">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
+          style={{ textShadow: subShadow }}
+        >
           Mushrooms
         </p>
 
-        <h1 className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight">
+        <h1
+          className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+          style={{ textShadow: headingShadow }}
+        >
           Cultivation Supplies
         </h1>
 
-        <p className="mt-3 max-w-2xl text-black/70">
+        <p
+          className="mt-3 max-w-2xl text-white/80"
+          style={{ textShadow: subShadow }}
+        >
           Bags, tools, substrates, and the stuff that actually matters. Build smarter grows
           with reliable supplies.
         </p>
 
-        {loading && <div className="mt-8 text-black/60">Loading products...</div>}
+        {loading && (
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            Loading products...
+          </div>
+        )}
 
         {!loading && filteredProducts.length === 0 && (
-          <div className="mt-8 text-black/60">No products in this category yet.</div>
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            No products in this category yet.
+          </div>
         )}
 
         {/* ✅ EXACT grid layout */}
@@ -204,7 +220,6 @@ export default function CultivationSupplies() {
                 ? variants.find((v) => v.id === selectedId) ?? variants[0]
                 : null;
 
-            // ✅ If no variants: normal price
             const displayPrice = hasVariants
               ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
               : Number(p.price ?? 0);
@@ -275,7 +290,6 @@ export default function CultivationSupplies() {
                     </h3>
                   </button>
 
-                  {/* Variants (radio row) only if exist */}
                   {hasVariants && (
                     <div className="mt-2">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -322,7 +336,7 @@ export default function CultivationSupplies() {
                     </div>
                   )}
 
-                  {/* Price (red) */}
+                  {/* Price */}
                   <div className="mt-2">
                     <div className="text-[9px] uppercase tracking-widest text-black/45">
                       {hasVariants ? "From" : "Price"}
@@ -335,7 +349,7 @@ export default function CultivationSupplies() {
                     </div>
                   </div>
 
-                  {/* Button: disabled ONLY when out of stock */}
+                  {/* Add button */}
                   <div className="mt-2.5">
                     <button
                       type="button"

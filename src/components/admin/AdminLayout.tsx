@@ -7,10 +7,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const onLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error("[AdminLayout] signOut error:", error);
     } finally {
-      // blunt, reliable, and clears any “stuck” state
-      navigate("/admin-login", { replace: true });
+      // Consistent with your AdminLogin route
+      navigate("/admin/login", { replace: true });
     }
   };
 

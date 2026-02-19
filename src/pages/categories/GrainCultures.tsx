@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import grainBg from "../../assets/grain-bg.png";
+import grainBg from "../../assets/new-bg.png";
 import ProductQuickView from "../../components/ProductQuickView";
 import { CATEGORY, normCategory } from "../../lib/category";
 
 const CAT = CATEGORY.grain;
 
-// Brand accents (match GrowKits layout)
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
@@ -60,8 +59,6 @@ function getBestImage(p: ShopProduct) {
 function isInStock(p: ShopProduct) {
   const inStockFlag = p.in_stock ?? true;
   const count = Number(p.stock_count ?? 0);
-
-  // if stock_count exists, enforce it; otherwise fall back to in_stock
   if (Number.isFinite(count) && count >= 0) return inStockFlag && count > 0;
   return !!inStockFlag;
 }
@@ -89,12 +86,10 @@ export default function GrainCultures() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Controlled popup state
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<ShopProduct | null>(null);
   const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
 
-  // ✅ Selected variant per product
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<
     Record<string, string>
   >({});
@@ -103,7 +98,6 @@ export default function GrainCultures() {
     const fetchProducts = async () => {
       setLoading(true);
 
-      // ✅ DO NOT filter by stock
       const { data, error } = await supabase
         .from("products")
         .select(
@@ -122,7 +116,6 @@ export default function GrainCultures() {
       const list = (data ?? []) as ShopProduct[];
       setProducts(list);
 
-      // seed selected variant to cheapest (if exists)
       const seed: Record<string, string> = {};
       for (const p of list) {
         const vars = normalizeVariants(p);
@@ -151,9 +144,12 @@ export default function GrainCultures() {
     console.log("ADD TO CART:", { productId: product.id, qty, variant });
   };
 
+  const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
+  const subShadow = "0 2px 12px rgba(0,0,0,0.55)";
+
   return (
     <main className="relative min-h-screen text-black">
-      {/* Background */}
+      {/* ✅ Unified Background */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -164,32 +160,43 @@ export default function GrainCultures() {
         }}
       />
 
-      {/* White overlays */}
-      <div className="fixed inset-0 z-0 bg-white/55 pointer-events-none" />
-      <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.65)_0%,rgba(255,255,255,0.85)_55%,rgba(255,255,255,0.95)_100%)]" />
+      {/* ✅ Removed white overlay layers */}
 
-      {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-black/50">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
+          style={{ textShadow: subShadow }}
+        >
           Mushrooms
         </p>
 
-        <h1 className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight">
+        <h1
+          className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+          style={{ textShadow: headingShadow }}
+        >
           Grain &amp; Cultures
         </h1>
 
-        <p className="mt-3 max-w-2xl text-black/70">
+        <p
+          className="mt-3 max-w-2xl text-white/80"
+          style={{ textShadow: subShadow }}
+        >
           Reliable genetics and spawn to level up your grows. Clean inputs,
           consistent results, less frustration.
         </p>
 
-        {loading && <div className="mt-8 text-black/60">Loading products...</div>}
-
-        {!loading && filteredProducts.length === 0 && (
-          <div className="mt-8 text-black/60">No products in this category yet.</div>
+        {loading && (
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            Loading products...
+          </div>
         )}
 
-        {/* ✅ EXACT grid layout */}
+        {!loading && filteredProducts.length === 0 && (
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            No products in this category yet.
+          </div>
+        )}
+
         <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {filteredProducts.map((p, idx) => {
             const img = getBestImage(p);
@@ -204,7 +211,6 @@ export default function GrainCultures() {
                 ? variants.find((v) => v.id === selectedId) ?? variants[0]
                 : null;
 
-            // ✅ If no variants: normal price
             const displayPrice = hasVariants
               ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
               : Number(p.price ?? 0);
@@ -212,41 +218,23 @@ export default function GrainCultures() {
             return (
               <div
                 key={p.id}
-                className={[
-                  "relative overflow-hidden",
-                  "bg-white/90 backdrop-blur",
-                  "border border-black/12",
-                  "shadow-[0_8px_18px_rgba(0,0,0,0.10)]",
-                  "hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)]",
-                  "transition-shadow",
-                  "rounded-none",
-                ].join(" ")}
+                className="relative overflow-hidden bg-white/90 backdrop-blur border border-black/12 shadow-[0_8px_18px_rgba(0,0,0,0.10)] hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition-shadow rounded-none"
               >
-                {/* Stock badge */}
                 <div className="absolute right-2 top-2 z-10">
-                  {stockOk ? (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_BLUE }}
-                    >
-                      IN&nbsp;STOCK
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_RED }}
-                    >
-                      OUT&nbsp;OF&nbsp;STOCK
-                    </span>
-                  )}
+                  <span
+                    className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
+                    style={{
+                      backgroundColor: stockOk ? BRAND_BLUE : BRAND_RED,
+                    }}
+                  >
+                    {stockOk ? "IN STOCK" : "OUT OF STOCK"}
+                  </span>
                 </div>
 
-                {/* Image area */}
                 <button
                   type="button"
                   onClick={() => openPopup(p, idx)}
                   className="relative block w-full aspect-square bg-black/5 border-b border-black/10"
-                  title="Quick view"
                 >
                   {img ? (
                     <img
@@ -262,67 +250,11 @@ export default function GrainCultures() {
                   )}
                 </button>
 
-                {/* Bottom */}
                 <div className="p-2.5">
-                  <button
-                    type="button"
-                    onClick={() => openPopup(p, idx)}
-                    className="w-full text-left"
-                    title="Quick view"
-                  >
-                    <h3 className="text-[12px] font-extrabold tracking-tight text-black leading-snug line-clamp-2">
-                      {p.name}
-                    </h3>
-                  </button>
+                  <h3 className="text-[12px] font-extrabold tracking-tight text-black line-clamp-2">
+                    {p.name}
+                  </h3>
 
-                  {/* Variants (radio row) only if exist */}
-                  {hasVariants && (
-                    <div className="mt-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {variants.map((v) => {
-                          const selected = (selectedVariant?.id ?? variants[0].id) === v.id;
-
-                          return (
-                            <label
-                              key={v.id}
-                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
-                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
-                            >
-                              <input
-                                type="radio"
-                                name={`variant_${p.id}`}
-                                className="sr-only"
-                                checked={selected}
-                                onChange={() =>
-                                  setSelectedVariantByProduct((prev) => ({
-                                    ...prev,
-                                    [p.id]: v.id,
-                                  }))
-                                }
-                              />
-                              <span
-                                className="h-2.5 w-2.5 border border-black/40 grid place-items-center"
-                                style={{ borderRadius: 9999 }}
-                              >
-                                {selected && (
-                                  <span
-                                    className="h-1.5 w-1.5"
-                                    style={{
-                                      borderRadius: 9999,
-                                      backgroundColor: BRAND_RED,
-                                    }}
-                                  />
-                                )}
-                              </span>
-                              <span>{shortVariantLabel(v)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Price (red) */}
                   <div className="mt-2">
                     <div className="text-[9px] uppercase tracking-widest text-black/45">
                       {hasVariants ? "From" : "Price"}
@@ -335,27 +267,16 @@ export default function GrainCultures() {
                     </div>
                   </div>
 
-                  {/* Button: disabled ONLY when out of stock */}
                   <div className="mt-2.5">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (hasVariants) {
-                          const v = selectedVariant ?? variants[0];
-                          return addToCart({ product: p, qty: 1, variant: v });
-                        }
-                        return addToCart({ product: p, qty: 1, variant: null });
-                      }}
                       disabled={!stockOk}
-                      className={[
-                        "w-full inline-flex items-center justify-center px-2 py-2",
-                        "text-[12px] font-extrabold transition",
+                      className="w-full inline-flex items-center justify-center px-2 py-2 text-[12px] font-extrabold transition rounded-none"
+                      style={
                         stockOk
-                          ? "text-white"
-                          : "bg-black/10 text-black/40 cursor-not-allowed",
-                        "rounded-none",
-                      ].join(" ")}
-                      style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}
+                          ? { backgroundColor: BRAND_BLUE, color: "white" }
+                          : undefined
+                      }
                     >
                       {stockOk ? "Add to cart" : "Out of stock"}
                     </button>
@@ -367,7 +288,6 @@ export default function GrainCultures() {
         </div>
       </div>
 
-      {/* Popup */}
       {active && (
         <ProductQuickView
           product={active as any}

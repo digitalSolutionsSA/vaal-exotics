@@ -1,19 +1,50 @@
 import React, { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
+const ADMIN_EMAILS = ["info@digitalsolutionssa.co.za"];
+
+type Status = "loading" | "ok" | "no-session" | "not-admin" | "error";
+
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
+  const [status, setStatus] = useState<Status>("loading");
+  const location = useLocation();
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
     const check = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setAuthed(!!data.session);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!alive) return;
+
+        if (error) {
+          console.error("[RequireAdmin] getSession error:", error);
+          setStatus("no-session");
+          return;
+        }
+
+        const user = data.session?.user ?? null;
+        const email = user?.email?.toLowerCase().trim() ?? "";
+
+        console.log("[RequireAdmin] session user:", email || null);
+
+        if (!user) {
+          setStatus("no-session");
+          return;
+        }
+
+        if (!ADMIN_EMAILS.includes(email)) {
+          setStatus("not-admin");
+          return;
+        }
+
+        setStatus("ok");
+      } catch (e) {
+        console.error("[RequireAdmin] unexpected error:", e);
+        if (!alive) return;
+        setStatus("error");
+      }
     };
 
     check();
@@ -23,20 +54,54 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
     });
 
     return () => {
-      mounted = false;
+      alive = false;
       sub.subscription.unsubscribe();
     };
   }, []);
 
-  if (loading) {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-white/70 text-sm">Checking auth…</div>
+      <div className="min-h-[60vh] flex items-center justify-center text-white/70">
+        Checking admin access...
       </div>
     );
   }
 
-  if (!authed) return <Navigate to="/admin-login" replace />;
+  if (status === "ok") return <>{children}</>;
 
-  return <>{children}</>;
+  if (status === "no-session") {
+    return (
+      <Navigate
+        to="/admin/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-white/70">
+        Admin check failed. Check console logs.
+      </div>
+    );
+  }
+
+  // not-admin
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-white/80 px-4 text-center">
+      <h1 className="text-xl font-bold text-white">Access denied</h1>
+      <p className="mt-2 max-w-md text-white/70">
+        You are signed in as{" "}
+        <span className="text-white/90">info@digitalsolutionssa.co.za</span>, but
+        this account is not allowed as an admin in the app guard.
+      </p>
+      <button
+        className="mt-5 rounded-lg bg-white/10 px-4 py-2 hover:bg-white/15"
+        onClick={() => supabase.auth.signOut()}
+      >
+        Sign out
+      </button>
+    </div>
+  );
 }

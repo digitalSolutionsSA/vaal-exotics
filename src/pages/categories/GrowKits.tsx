@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import growBg from "../../assets/grow-bg.png";
+import growBg from "../../assets/new-bg.png";
 import { CATEGORY, normCategory } from "../../lib/category";
 import ProductQuickView from "../../components/ProductQuickView";
 
@@ -169,27 +169,47 @@ export default function GrowKits() {
           backgroundRepeat: "no-repeat",
         }}
       />
-      <div className="fixed inset-0 z-0 bg-white/55 pointer-events-none" />
-      <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.65)_0%,rgba(255,255,255,0.85)_55%,rgba(255,255,255,0.95)_100%)]" />
 
       {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-black/50">
+        {/* ✅ Headings now white */}
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
+          style={{ textShadow: "0 2px 10px rgba(0,0,0,0.65)" }}
+        >
           Mushrooms
         </p>
 
-        <h1 className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight">
+        <h1
+          className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+          style={{ textShadow: "0 6px 24px rgba(0,0,0,0.65)" }}
+        >
           Mushroom Grow Kits
         </h1>
 
-        <p className="mt-3 max-w-2xl text-black/70">
+        <p
+          className="mt-3 max-w-2xl text-white/80"
+          style={{ textShadow: "0 2px 12px rgba(0,0,0,0.55)" }}
+        >
           Beginner-friendly kits designed for clean home harvests.
         </p>
 
-        {loading && <div className="mt-8 text-black/60">Loading products...</div>}
+        {loading && (
+          <div
+            className="mt-8 text-white/80"
+            style={{ textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}
+          >
+            Loading products...
+          </div>
+        )}
 
         {!loading && filteredProducts.length === 0 && (
-          <div className="mt-8 text-black/60">No products in this category yet.</div>
+          <div
+            className="mt-8 text-white/80"
+            style={{ textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}
+          >
+            No products in this category yet.
+          </div>
         )}
 
         {/* ✅ Smaller tiles, dense grid */}
@@ -283,13 +303,16 @@ export default function GrowKits() {
                     <div className="mt-2">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         {variants.map((v) => {
-                          const selected = (selectedVariant?.id ?? variants[0].id) === v.id;
+                          const selected =
+                            (selectedVariant?.id ?? variants[0].id) === v.id;
 
                           return (
                             <label
                               key={v.id}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
-                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
+                              title={`${shortVariantLabel(v)} · ${formatZar(
+                                v.price
+                              )}`}
                             >
                               <input
                                 type="radio"
@@ -350,7 +373,6 @@ export default function GrowKits() {
                           const v = selectedVariant ?? variants[0];
                           return addToCart({ product: p, qty: 1, variant: v });
                         }
-                        // no variants = normal product
                         return addToCart({ product: p, qty: 1, variant: null });
                       }}
                       disabled={!stockOk}

@@ -65,9 +65,10 @@ export default function Hero() {
       className="relative overflow-hidden h-[100svh] w-full flex items-center justify-center"
     >
       <link
-        href="https://fonts.googleapis.com/css2?family=Anton&display=swap"
-        rel="stylesheet"
-      />
+  href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap"
+  rel="stylesheet"
+/>
+
 
       {/* Background as its own layer so we can zoom it independently */}
       <div
@@ -94,9 +95,12 @@ export default function Hero() {
             ref={vaalRef}
             className="text-[clamp(6rem,21vw,16rem)] leading-none text-white uppercase m-0 will-change-transform"
             style={{
-              fontFamily: "Anton, sans-serif",
-              transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
-            }}
+  fontFamily: "Oswald, sans-serif",
+  fontWeight: 500,
+  letterSpacing: "0.02em",
+  transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
+}}
+
           >
             VAAL
           </h1>
@@ -156,9 +160,12 @@ export default function Hero() {
             ref={exoticsRef}
             className="text-[clamp(6rem,21vw,16rem)] leading-none text-white uppercase m-0 will-change-transform"
             style={{
-              fontFamily: "Anton, sans-serif",
-              transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
-            }}
+  fontFamily: "Oswald, sans-serif",
+  fontWeight: 500,
+  letterSpacing: "0.02em",
+  transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
+}}
+
           >
             EXOTICS
           </h1>
