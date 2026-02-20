@@ -120,7 +120,7 @@ function toInStock(stockCount: number) {
 export default function AdminProducts() {
   // ── UI tokens (white cards) ────────────────────────────────────────────────
   const CARD = "rounded-2xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
-  const CARD_SOFT = "rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.08)]";
+  // const CARD_SOFT = "rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.08)]";
   const SUBPANEL = "rounded-2xl border border-black/10 bg-neutral-50 p-4";
   const INPUT =
     "w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30";
