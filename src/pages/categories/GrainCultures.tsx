@@ -116,6 +116,7 @@ export default function GrainCultures() {
       const list = (data ?? []) as ShopProduct[];
       setProducts(list);
 
+      // seed default variant per product
       const seed: Record<string, string> = {};
       for (const p of list) {
         const vars = normalizeVariants(p);
@@ -141,6 +142,7 @@ export default function GrainCultures() {
   };
 
   const addToCart = ({ product, qty, variant }: any) => {
+    // Replace this with your real cart logic (context/localStorage/etc.)
     console.log("ADD TO CART:", { productId: product.id, qty, variant });
   };
 
@@ -159,8 +161,6 @@ export default function GrainCultures() {
           backgroundRepeat: "no-repeat",
         }}
       />
-
-      {/* ✅ Removed white overlay layers */}
 
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
         <p
@@ -255,9 +255,34 @@ export default function GrainCultures() {
                     {p.name}
                   </h3>
 
+                  {/* ✅ Variant selector (so selectedVariant is real and shortVariantLabel is used) */}
+                  {hasVariants && (
+                    <div className="mt-2">
+                      <div className="text-[9px] uppercase tracking-widest text-black/45">
+                        Size
+                      </div>
+                      <select
+                        value={selectedVariant?.id ?? ""}
+                        onChange={(e) =>
+                          setSelectedVariantByProduct((prev) => ({
+                            ...prev,
+                            [p.id]: e.target.value,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-[11px] outline-none"
+                      >
+                        {variants.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {shortVariantLabel(v)} · {formatZar(v.price)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="mt-2">
                     <div className="text-[9px] uppercase tracking-widest text-black/45">
-                      {hasVariants ? "From" : "Price"}
+                      {hasVariants ? "Price" : "Price"}
                     </div>
                     <div
                       className="text-[18px] font-extrabold leading-none"
@@ -271,7 +296,15 @@ export default function GrainCultures() {
                     <button
                       type="button"
                       disabled={!stockOk}
-                      className="w-full inline-flex items-center justify-center px-2 py-2 text-[12px] font-extrabold transition rounded-none"
+                      onClick={() =>
+                        stockOk &&
+                        addToCart({
+                          product: p,
+                          qty: 1,
+                          variant: selectedVariant,
+                        })
+                      }
+                      className="w-full inline-flex items-center justify-center px-2 py-2 text-[12px] font-extrabold transition rounded-none disabled:opacity-60"
                       style={
                         stockOk
                           ? { backgroundColor: BRAND_BLUE, color: "white" }
