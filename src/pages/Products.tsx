@@ -1,20 +1,46 @@
-import { useState } from "react";
-import { useEffect } from "react";
-import { useMemo } from "react";
-import { useRef } from "react";
-
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import productsBg from "../assets/products-bg.png";
+import productsBg from "../assets/new-bg.png";
 import { supabase } from "../lib/supabase";
 import ProductQuickView from "../components/ProductQuickView";
 import { useCart } from "../context/cart";
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "name-asc" | "name-desc";
 
+const BRAND_RED = "#C43A2F";
+const BRAND_BLUE = "#2F4D7A";
+
+type VariantUnit = "kg" | "l";
+
+type ProductVariant = {
+  id: string;
+  unit: VariantUnit;
+  size: string;
+  price: number;
+};
+
+type ShopProduct = {
+  id: string;
+  name: string;
+  slug?: string | null;
+  category: string;
+  price: number;
+  price_cents?: number | null;
+  description: string | null;
+
+  in_stock?: boolean | null;
+  stock_count?: number | null;
+
+  image_url?: string | null;
+  images?: any;
+  variants?: any;
+  created_at?: string;
+};
+
 function formatZar(value: any) {
   const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  return Number.isFinite(n) ? `R${n.toFixed(2)}` : "R0.00";
 }
 
 function normCategory(input: any) {
@@ -25,40 +51,81 @@ function normCategory(input: any) {
     .replace(/\s+/g, " ");
 }
 
-function normalizeProductRow(p: any) {
+function safeArray<T = any>(maybeArray: any): T[] {
+  if (!maybeArray) return [];
+  if (Array.isArray(maybeArray)) return maybeArray;
+  if (typeof maybeArray === "string") {
+    try {
+      const parsed = JSON.parse(maybeArray);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function getBestImage(p: ShopProduct) {
+  const imgs = safeArray<string>(p.images);
+  return imgs?.[0] || p.image_url || "";
+}
+
+function isInStock(p: ShopProduct) {
+  const inStockFlag = p.in_stock ?? true;
+  const count = Number(p.stock_count ?? 0);
+
+  if (Number.isFinite(count) && count >= 0) return inStockFlag && count > 0;
+  return !!inStockFlag;
+}
+
+function normalizeVariants(p: ShopProduct): ProductVariant[] {
+  const v = safeArray<any>(p.variants);
+
+  return v
+    .filter(Boolean)
+    .map((x: any, i: number) => ({
+      id: String(x.id ?? `${p.id}_${i}`),
+      unit: (x.unit === "l" ? "l" : "kg") as VariantUnit,
+      size: String(x.size ?? ""),
+      price: Number(x.price ?? 0),
+    }))
+    .filter((x) => x.size && Number.isFinite(x.price) && x.price > 0)
+    .sort((a, b) => a.price - b.price);
+}
+
+function shortVariantLabel(v: ProductVariant) {
+  return `${v.size}${v.unit.toUpperCase()}`;
+}
+
+function normalizeProductRow(p: any): ShopProduct {
+  // Preserve your old pricing fallbacks (price, price_cents, variants)
   const basePrice = Number(p?.price);
   const hasBase = Number.isFinite(basePrice) && basePrice > 0;
 
   const centsRaw = p?.price_cents;
-  const centsNum =
-    centsRaw === null || centsRaw === undefined ? NaN : Number(centsRaw);
-
+  const centsNum = centsRaw === null || centsRaw === undefined ? NaN : Number(centsRaw);
   const hasCents = Number.isFinite(centsNum) && centsNum > 0;
 
-  // Variants fallback (optional but good)
-  const variants = Array.isArray(p?.variants) ? p.variants : [];
+  const variants = safeArray<any>(p?.variants);
   const variantPrices = variants
     .map((v: any) => Number(v?.price))
     .filter((n: number) => Number.isFinite(n) && n > 0);
 
   const fromVariants = variantPrices.length ? Math.min(...variantPrices) : NaN;
 
-  const price = hasBase
-    ? basePrice
-    : hasCents
-    ? centsNum / 100
-    : Number.isFinite(fromVariants)
-    ? fromVariants
-    : 0;
+  const price = hasBase ? basePrice : hasCents ? centsNum / 100 : Number.isFinite(fromVariants) ? fromVariants : 0;
 
-  return { ...p, variants, price };
+  return {
+    ...p,
+    variants,
+    price,
+  } as ShopProduct;
 }
-
 
 export default function Products() {
   const cart: any = useCart();
 
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -70,23 +137,31 @@ export default function Products() {
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [sort, setSort] = useState<SortOption>("featured");
 
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  // Only show active products to customers
+  // Bulk exclusion (same as your current Products page)
   const BULK_CATEGORY = "Bulk Herbal Products";
   const bulkNorm = normCategory(BULK_CATEGORY);
+
+  // ✅ Controlled popup state (same pattern as BulkHerbal)
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<ShopProduct | null>(null);
+  const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
+
+  // ✅ Selected variant per product (same as BulkHerbal)
+  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>(
+    {}
+  );
+
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
     setErrorMsg("");
 
-    // ✅ IMPORTANT: match your table schema (price_cents exists, active does NOT)
     const { data, error } = await supabase
       .from("products")
-      .select("id,name,slug,category,price,price_cents,description,image_url,images,variants,stock_count,created_at")
-
-      // If you want to show only items currently for sale, keep this:
-      // 
+      .select(
+        "id,name,slug,category,price,price_cents,description,in_stock,stock_count,image_url,images,variants,created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -97,20 +172,30 @@ export default function Products() {
       return;
     }
 
+    // normalize + exclude bulk
     const cleaned = (data ?? [])
       .map(normalizeProductRow)
       .filter((p: any) => {
-        // 🚫 HARD exclude Bulk Herbal from All Products page
         if (normCategory(p?.category) === bulkNorm) return false;
         return true;
-      });
+      }) as ShopProduct[];
 
     setProducts(cleaned);
+
+    // seed selected variant to cheapest (if exists)
+    const seed: Record<string, string> = {};
+    for (const p of cleaned) {
+      const vars = normalizeVariants(p);
+      if (vars.length) seed[p.id] = vars[0].id;
+    }
+    setSelectedVariantByProduct(seed);
+
     setLoading(false);
   };
 
   useEffect(() => {
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkNorm]);
 
   // Close dropdown when clicking outside
@@ -128,14 +213,16 @@ export default function Products() {
   // Close on ESC
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!filtersOpen) return;
-      if (e.key === "Escape") setFiltersOpen(false);
+      if (filtersOpen && e.key === "Escape") setFiltersOpen(false);
+      if (open && e.key === "Escape") {
+        setOpen(false);
+        setActive(null);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filtersOpen]);
+  }, [filtersOpen, open]);
 
-  // Build category list with normalization so duplicates don't show up
   const categories = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of products as any[]) {
@@ -155,14 +242,14 @@ export default function Products() {
     return { min: Math.min(...vals), max: Math.max(...vals) };
   }, [products]);
 
-  const filtered = useMemo(() => {
+  const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
     const min = minPrice.trim() === "" ? null : Number(minPrice);
     const max = maxPrice.trim() === "" ? null : Number(maxPrice);
 
     const selectedCatNorm = category === "All" ? "all" : normCategory(category);
 
-    let list = (products as any[]).filter((p: any) => {
+    let list = (products as ShopProduct[]).filter((p) => {
       if (category !== "All") {
         const pCatNorm = normCategory(p?.category);
         if (pCatNorm !== selectedCatNorm) return false;
@@ -200,12 +287,10 @@ export default function Products() {
     return list;
   }, [products, query, category, minPrice, maxPrice, sort]);
 
-  const resetFilters = () => {
-    setQuery("");
-    setCategory("All");
-    setMinPrice("");
-    setMaxPrice("");
-    setSort("featured");
+  const openPopup = (p: ShopProduct, idx: number) => {
+    setActive(p);
+    setActiveAccent(idx % 2 === 0 ? "blue" : "red");
+    setOpen(true);
   };
 
   // ✅ Same callback signature as GrowKits expects
@@ -235,30 +320,58 @@ export default function Products() {
     console.log("ADD TO CART (no cart handler found):", { productId: product?.id, qty, variant });
   };
 
-  return (
-    <section
-      className="relative min-h-screen bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: `url(${productsBg})` }}
-    >
-      <div className="absolute inset-0 bg-black/75" />
+  const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
+  const subShadow = "0 2px 12px rgba(0,0,0,0.55)";
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  return (
+    <main className="relative min-h-screen text-black">
+      {/* ✅ Background EXACTLY like BulkHerbal */}
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: `url(${productsBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
+        {/* Headings styled like BulkHerbal */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-white sm:text-4xl" style={{ fontFamily: "Montserrat, sans-serif" }}>
-              VIEW PRODUCTS
+            <p
+              className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
+              style={{ textShadow: subShadow }}
+            >
+              Shop
+            </p>
+
+            <h1
+              className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+              style={{ textShadow: headingShadow }}
+            >
+              View Products
             </h1>
-            <p className="mt-2 text-sm text-white/70 sm:text-base">
+
+            <p className="mt-3 max-w-2xl text-white/80" style={{ textShadow: subShadow }}>
               All categories in one place. Filter by category, price and search.
             </p>
+
+            <div className="mt-4 text-white/80 text-sm" style={{ textShadow: subShadow }}>
+              Showing{" "}
+              <span className="font-extrabold text-white">{filteredProducts.length}</span> of{" "}
+              <span className="font-extrabold text-white">{products.length}</span> products
+            </div>
           </div>
 
-          {/* Right controls */}
-          <div className="relative flex items-center gap-2 sm:gap-3" ref={dropdownRef}>
+          {/* Controls */}
+          <div className="relative flex flex-wrap items-center gap-2" ref={dropdownRef}>
             <button
               onClick={() => setFiltersOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-extrabold text-white border border-white/25 bg-white/10 backdrop-blur hover:bg-white/15 transition"
+              style={{ borderRadius: 0, textShadow: subShadow }}
               aria-expanded={filtersOpen}
               aria-haspopup="true"
             >
@@ -268,35 +381,41 @@ export default function Products() {
 
             <Link
               to="/"
-              className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-extrabold text-white border border-white/25 bg-white/10 backdrop-blur hover:bg-white/15 transition"
+              style={{ borderRadius: 0, textShadow: subShadow }}
             >
               Back to Home
             </Link>
 
             {filtersOpen && (
-              <div className="absolute right-0 top-12 z-50 w-[min(92vw,720px)] rounded-2xl border border-white/10 bg-black/90 p-5 backdrop-blur shadow-2xl">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-semibold text-white/90">Filters</div>
-                  <div className="ml-auto text-xs text-white/60">
+              <div
+                className="absolute right-0 top-12 z-50 w-[min(92vw,860px)] border border-black/15 bg-white/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+                style={{ borderRadius: 0 }}
+              >
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-black/10">
+                  <div className="text-sm font-extrabold text-black">Filters</div>
+                  <div className="ml-auto text-xs text-black/60">
                     Price range: {formatZar(priceStats.min)}–{formatZar(priceStats.max)}
                   </div>
                   <button
                     onClick={() => setFiltersOpen(false)}
-                    className="ml-2 rounded-lg border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10"
+                    className="ml-2 border border-black/15 bg-black/5 p-2 hover:bg-black/10 transition"
+                    style={{ borderRadius: 0 }}
                     aria-label="Close filters"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-black/70" />
                   </button>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="relative lg:col-span-2">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
                     <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search products..."
-                      className="w-full rounded-xl border border-white/10 bg-black/40 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                      className="w-full border border-black/15 bg-white px-9 pr-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+                      style={{ borderRadius: 0 }}
                     />
                   </div>
 
@@ -304,10 +423,11 @@ export default function Products() {
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                      className="w-full border border-black/15 bg-white px-3 py-2.5 text-sm text-black outline-none focus:border-black/30"
+                      style={{ borderRadius: 0 }}
                     >
                       {categories.map((c) => (
-                        <option key={c} value={c} className="bg-black">
+                        <option key={c} value={c}>
                           {c}
                         </option>
                       ))}
@@ -318,23 +438,14 @@ export default function Products() {
                     <select
                       value={sort}
                       onChange={(e) => setSort(e.target.value as SortOption)}
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                      className="w-full border border-black/15 bg-white px-3 py-2.5 text-sm text-black outline-none focus:border-black/30"
+                      style={{ borderRadius: 0 }}
                     >
-                      <option value="featured" className="bg-black">
-                        Featured
-                      </option>
-                      <option value="price-asc" className="bg-black">
-                        Price: Low → High
-                      </option>
-                      <option value="price-desc" className="bg-black">
-                        Price: High → Low
-                      </option>
-                      <option value="name-asc" className="bg-black">
-                        Name: A → Z
-                      </option>
-                      <option value="name-desc" className="bg-black">
-                        Name: Z → A
-                      </option>
+                      <option value="featured">Featured</option>
+                      <option value="price-asc">Price: Low → High</option>
+                      <option value="price-desc">Price: High → Low</option>
+                      <option value="name-asc">Name: A → Z</option>
+                      <option value="name-desc">Name: Z → A</option>
                     </select>
                   </div>
 
@@ -344,7 +455,8 @@ export default function Products() {
                       onChange={(e) => setMinPrice(e.target.value)}
                       inputMode="numeric"
                       placeholder="Min price"
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                      className="w-full border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+                      style={{ borderRadius: 0 }}
                     />
                   </div>
 
@@ -354,22 +466,31 @@ export default function Products() {
                       onChange={(e) => setMaxPrice(e.target.value)}
                       inputMode="numeric"
                       placeholder="Max price"
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                      className="w-full border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+                      style={{ borderRadius: 0 }}
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="px-4 pb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <button
-                    onClick={resetFilters}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+                    onClick={() => {
+                      setQuery("");
+                      setCategory("All");
+                      setMinPrice("");
+                      setMaxPrice("");
+                      setSort("featured");
+                    }}
+                    className="px-4 py-2 text-sm font-extrabold border border-black/15 bg-black/5 hover:bg-black/10 transition"
+                    style={{ borderRadius: 0 }}
                   >
-                    Reset filters
+                    Reset
                   </button>
 
                   <button
                     onClick={() => setFiltersOpen(false)}
-                    className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228]"
+                    className="px-4 py-2 text-sm font-extrabold text-white transition"
+                    style={{ borderRadius: 0, backgroundColor: BRAND_RED }}
                   >
                     Apply
                   </button>
@@ -379,43 +500,205 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Results */}
-        <div className="mt-8">
-          <div className="mb-4 text-sm text-white/70">
-            Showing <span className="font-semibold text-white">{filtered.length}</span> of{" "}
-            <span className="font-semibold text-white">{products.length}</span> products
+        {errorMsg && (
+          <div className="mt-8 border border-red-500/25 bg-red-500/15 px-4 py-3 text-white/90" style={{ textShadow: subShadow }}>
+            <div className="font-extrabold">Supabase error:</div>
+            <div className="mt-1">{errorMsg}</div>
+            <button
+              onClick={fetchProducts}
+              className="mt-3 px-4 py-2 text-sm font-extrabold text-white border border-white/25 bg-white/10 hover:bg-white/15 transition"
+              style={{ borderRadius: 0 }}
+            >
+              Retry
+            </button>
           </div>
+        )}
 
-          {errorMsg && (
-            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
-              <div className="font-semibold">Supabase error:</div>
-              <div className="mt-1 opacity-90">{errorMsg}</div>
-              <button
-                onClick={fetchProducts}
-                className="mt-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+        {loading && (
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            Loading products...
+          </div>
+        )}
+
+        {!loading && filteredProducts.length === 0 && (
+          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+            No products match your filters.
+          </div>
+        )}
+
+        {/* ✅ EXACT grid + blocks like BulkHerbal */}
+        <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {filteredProducts.map((p, idx) => {
+            const img = getBestImage(p);
+            const stockOk = isInStock(p);
+
+            const variants = normalizeVariants(p);
+            const hasVariants = variants.length > 0;
+
+            const selectedId = selectedVariantByProduct[p.id];
+            const selectedVariant =
+              hasVariants && selectedId
+                ? variants.find((v) => v.id === selectedId) ?? variants[0]
+                : null;
+
+            const displayPrice = hasVariants
+              ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
+              : Number(p.price ?? 0);
+
+            return (
+              <div
+                key={p.id}
+                className={[
+                  "relative overflow-hidden",
+                  "bg-white/90 backdrop-blur",
+                  "border border-black/12",
+                  "shadow-[0_8px_18px_rgba(0,0,0,0.10)]",
+                  "hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)]",
+                  "transition-shadow",
+                  "rounded-none",
+                ].join(" ")}
               >
-                Retry
-              </button>
-            </div>
-          )}
+                {/* Stock badge */}
+                <div className="absolute right-2 top-2 z-10">
+                  {stockOk ? (
+                    <span
+                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
+                      style={{ backgroundColor: BRAND_BLUE }}
+                    >
+                      IN&nbsp;STOCK
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
+                      style={{ backgroundColor: BRAND_RED }}
+                    >
+                      OUT&nbsp;OF&nbsp;STOCK
+                    </span>
+                  )}
+                </div>
 
-          {loading ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/70">
-              Loading products...
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/70">
-              No products match your filters.
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((p: any) => (
-                <ProductQuickView key={p.id} product={p} onAddToCart={addToCart} />
-              ))}
-            </div>
-          )}
+                {/* Image area */}
+                <button
+                  type="button"
+                  onClick={() => openPopup(p, idx)}
+                  className="relative block w-full aspect-square bg-black/5 border-b border-black/10"
+                  title="Quick view"
+                >
+                  {img ? (
+                    <img src={img} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center text-[10px] text-black/45">
+                      No image yet
+                    </div>
+                  )}
+                </button>
+
+                {/* Bottom */}
+                <div className="p-2.5">
+                  <button type="button" onClick={() => openPopup(p, idx)} className="w-full text-left" title="Quick view">
+                    <h3 className="text-[12px] font-extrabold tracking-tight text-black leading-snug line-clamp-2">
+                      {p.name}
+                    </h3>
+                  </button>
+
+                  {/* Variants (radio row) only if exist */}
+                  {hasVariants && (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {variants.map((v) => {
+                          const selected = (selectedVariant?.id ?? variants[0].id) === v.id;
+
+                          return (
+                            <label
+                              key={v.id}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
+                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
+                            >
+                              <input
+                                type="radio"
+                                name={`variant_${p.id}`}
+                                className="sr-only"
+                                checked={selected}
+                                onChange={() =>
+                                  setSelectedVariantByProduct((prev) => ({
+                                    ...prev,
+                                    [p.id]: v.id,
+                                  }))
+                                }
+                              />
+                              <span
+                                className="h-2.5 w-2.5 border border-black/40 grid place-items-center"
+                                style={{ borderRadius: 9999 }}
+                              >
+                                {selected && (
+                                  <span
+                                    className="h-1.5 w-1.5"
+                                    style={{ borderRadius: 9999, backgroundColor: BRAND_RED }}
+                                  />
+                                )}
+                              </span>
+                              <span>{shortVariantLabel(v)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price (red) */}
+                  <div className="mt-2">
+                    <div className="text-[9px] uppercase tracking-widest text-black/45">
+                      {hasVariants ? "From" : "Price"}
+                    </div>
+                    <div className="text-[18px] font-extrabold leading-none" style={{ color: BRAND_RED }}>
+                      {formatZar(displayPrice)}
+                    </div>
+                  </div>
+
+                  {/* Button */}
+                  <div className="mt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (hasVariants) {
+                          const v = selectedVariant ?? variants[0];
+                          return addToCart({ product: p, qty: 1, variant: v });
+                        }
+                        return addToCart({ product: p, qty: 1, variant: null });
+                      }}
+                      disabled={!stockOk}
+                      className={[
+                        "w-full inline-flex items-center justify-center px-2 py-2",
+                        "text-[12px] font-extrabold transition",
+                        stockOk ? "text-white" : "bg-black/10 text-black/40 cursor-not-allowed",
+                        "rounded-none",
+                      ].join(" ")}
+                      style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}
+                    >
+                      {stockOk ? "Add to cart" : "Out of stock"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-    </section>
+
+      {/* Popup */}
+      {active && (
+        <ProductQuickView
+          product={active as any}
+          onAddToCart={addToCart}
+          open={open}
+          onOpenChange={(next: boolean) => {
+            setOpen(next);
+            if (!next) setActive(null);
+          }}
+          hideCard
+          accent={activeAccent}
+        />
+      )}
+    </main>
   );
 }

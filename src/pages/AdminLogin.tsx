@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useLocation, useNavigate } from "react-router-dom";
+import webBg from "../assets/web-bg.png";
 
 type LocationState = {
   from?: string;
@@ -102,45 +103,60 @@ export default function AdminLogin() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-        <h1 className="text-xl font-extrabold">Admin Login</h1>
-        <p className="mt-1 text-sm text-white/60">
-          Real login. Real session. RLS stops throwing a tantrum.
-        </p>
+    <main className="relative min-h-screen text-black flex items-center justify-center p-4">
+      {/* ✅ Same background as Hero (no overlay) */}
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: `url(${webBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
 
-        {error && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {error}
-          </div>
-        )}
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* ✅ Solid white card, black text */}
+        <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+          <h1 className="text-xl font-extrabold text-black">Admin Login</h1>
+          <p className="mt-1 text-sm text-black/60">
+            Real login. Real session. RLS stops throwing a tantrum.
+          </p>
 
-        <form onSubmit={onSubmit} className="mt-4 grid gap-3">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@email.com"
-            type="email"
-            autoComplete="email"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-900">
+              {error}
+            </div>
+          )}
 
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            type="password"
-            autoComplete="current-password"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
+          <form onSubmit={onSubmit} className="mt-4 grid gap-3">
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@email.com"
+              type="email"
+              autoComplete="email"
+              className="rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+            />
 
-          <button
-            disabled={busy}
-            className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60"
-          >
-            {busy ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              type="password"
+              autoComplete="current-password"
+              className="rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+            />
+
+            <button
+              disabled={busy}
+              className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60"
+            >
+              {busy ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );

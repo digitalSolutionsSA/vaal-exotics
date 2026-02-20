@@ -118,6 +118,23 @@ function toInStock(stockCount: number) {
 }
 
 export default function AdminProducts() {
+  // ── UI tokens (white cards) ────────────────────────────────────────────────
+  const CARD = "rounded-2xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
+  const CARD_SOFT = "rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.08)]";
+  const SUBPANEL = "rounded-2xl border border-black/10 bg-neutral-50 p-4";
+  const INPUT =
+    "w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30";
+  const SELECT =
+    "w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black outline-none focus:border-black/30";
+  const TEXTAREA =
+    "w-full min-h-[90px] rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30";
+  const HELP = "text-xs text-black/60";
+  const TITLE = "text-lg font-extrabold text-black";
+  const BTN_SOFT =
+    "rounded-xl border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-black/80 transition hover:bg-neutral-50";
+  const BTN_RED =
+    "rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60";
+
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -223,7 +240,9 @@ export default function AdminProducts() {
     setMStock(String(Number(openProduct.stock_count ?? 0)));
     setMVariants(normalizeVariants(openProduct.variants));
     setMImages(Array.isArray(openProduct.images) ? openProduct.images : []);
-  }, [openProductId]); // intentionally: reload when opening a product
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openProductId]);
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     const wanted = normCategory(brandFilter);
@@ -270,7 +289,7 @@ export default function AdminProducts() {
 
   const removeVariant = (id: string) => setVariants((prev) => prev.filter((v) => v.id !== id));
 
-  // ✅ Supabase helpers (FIXED: remove .single() to avoid "Cannot coerce..." errors)
+  // ✅ Supabase helpers
   const addProduct = async (payload: any) => {
     const { data, error } = await supabase.from("products").insert(payload).select("*");
     if (error) throw error;
@@ -283,16 +302,11 @@ export default function AdminProducts() {
   };
 
   const updateProduct = async (id: string, patch: any) => {
-    const { data, error } = await supabase
-      .from("products")
-      .update(patch)
-      .eq("id", id)
-      .select("*");
+    const { data, error } = await supabase.from("products").update(patch).eq("id", id).select("*");
 
     if (error) throw error;
 
     if (!Array.isArray(data) || data.length !== 1) {
-      // This is the big one: if RLS blocks update, data will be []
       throw new Error("Update failed (no permission via RLS, or product not found).");
     }
 
@@ -393,7 +407,6 @@ export default function AdminProducts() {
     setBusy(true);
     try {
       const urls = await uploadImages(productId, files.slice(0, MAX_IMAGES_PER_PRODUCT));
-      // append, but cap
       const next = [...mImages, ...urls].slice(0, MAX_IMAGES_PER_PRODUCT);
       setMImages(next);
       await updateProduct(productId, { images: next });
@@ -430,6 +443,7 @@ export default function AdminProducts() {
   };
 
   const removeModalVariant = (id: string) => setMVariants((prev) => prev.filter((v) => v.id !== id));
+
   const saveModal = async () => {
     if (!openProductId) return;
     setMError("");
@@ -450,8 +464,7 @@ export default function AdminProducts() {
     const derived = minVariantPrice(cleanVariants);
     const baseFromInput = parseZar(mPrice);
 
-    const finalPrice =
-      cleanVariants.length > 0 ? derived ?? baseFromInput : baseFromInput;
+    const finalPrice = cleanVariants.length > 0 ? derived ?? baseFromInput : baseFromInput;
 
     if (finalPrice === null) {
       setMError("Price is invalid. Use numbers like 299 or 299.99");
@@ -574,42 +587,42 @@ export default function AdminProducts() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-black">
       {/* Top row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-          <div className="text-sm font-semibold text-white/80">Products</div>
-          <div className="mt-2 text-3xl font-extrabold text-white">{products.length}</div>
-          <div className="mt-1 text-xs text-white/50">Loaded from Supabase. Like an actual store.</div>
-          {loading && <div className="mt-2 text-xs text-white/60">Loading…</div>}
-          {error && <div className="mt-2 text-xs text-red-200">{error}</div>}
+        <div className={CARD}>
+          <div className="text-sm font-semibold text-black/70">Products</div>
+          <div className="mt-2 text-3xl font-extrabold text-black">{products.length}</div>
+          <div className="mt-1 text-xs text-black/60">Loaded from Supabase. Like an actual store.</div>
+          {loading && <div className="mt-2 text-xs text-black/60">Loading…</div>}
+          {error && <div className="mt-2 text-xs text-red-700">{error}</div>}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur lg:col-span-2">
+        <div className={`${CARD} lg:col-span-2`}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search products..."
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 sm:col-span-2"
+              className={`${INPUT} sm:col-span-2`}
             />
-            <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white/60">
+            <div className="rounded-xl border border-black/10 bg-neutral-50 px-3 py-2.5 text-sm text-black/60">
               Filter is in the Product list below
             </div>
           </div>
-          <div className="mt-2 text-xs text-white/45">Search here. Category filter is attached to the Product list.</div>
+          <div className={`mt-2 ${HELP}`}>Search here. Category filter is attached to the Product list.</div>
         </div>
       </div>
 
       {/* Add product */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-        <div className="text-lg font-extrabold text-white">Add product</div>
-        <p className="mt-1 text-sm text-white/60">
+      <div className={CARD}>
+        <div className={TITLE}>Add product</div>
+        <p className="mt-1 text-sm text-black/60">
           Uploads images to Supabase Storage and saves product data to Supabase DB. Prices support decimals.
         </p>
 
         {formError && (
-          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-900">
             {formError}
           </div>
         )}
@@ -620,15 +633,15 @@ export default function AdminProducts() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Product name"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+              className={INPUT}
             />
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+              className={SELECT}
             >
               {CATEGORIES.map((c) => (
-                <option key={c} value={c} className="bg-black">
+                <option key={c} value={c} className="bg-white text-black">
                   {c}
                 </option>
               ))}
@@ -640,13 +653,13 @@ export default function AdminProducts() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="Base price (optional if using variants)"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 sm:col-span-2"
+              className={`${INPUT} sm:col-span-2`}
             />
             <input
               value={stockCount}
               onChange={(e) => setStockCount(e.target.value)}
               placeholder="Stock count"
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+              className={INPUT}
             />
           </div>
 
@@ -654,30 +667,29 @@ export default function AdminProducts() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description"
-            className="min-h-[90px] rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+            className={TEXTAREA}
           />
 
           {/* Images */}
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-            <div className="text-sm font-semibold text-white/80">Images (max {MAX_IMAGES_PER_PRODUCT})</div>
+          <div className={SUBPANEL}>
+            <div className="text-sm font-semibold text-black/70">Images (max {MAX_IMAGES_PER_PRODUCT})</div>
             <input
               ref={addImagesInputRef}
               type="file"
               accept="image/*"
               multiple
               onChange={onPickAddImages}
-              className="mt-3 block w-full text-sm text-white/70"
+              className="mt-3 block w-full text-sm text-black/70"
             />
             {newFiles.length > 0 && (
               <div className="mt-3 grid gap-2">
                 {newFiles.map((f, idx) => (
-                  <div key={`${f.name}_${idx}`} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-                    <div className="truncate text-xs text-white/80">{f.name}</div>
-                    <button
-                      type="button"
-                      onClick={() => removeNewFile(idx)}
-                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
-                    >
+                  <div
+                    key={`${f.name}_${idx}`}
+                    className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-black/10"
+                  >
+                    <div className="truncate text-xs text-black/80">{f.name}</div>
+                    <button type="button" onClick={() => removeNewFile(idx)} className={BTN_SOFT}>
                       Remove
                     </button>
                   </div>
@@ -687,34 +699,26 @@ export default function AdminProducts() {
           </div>
 
           {/* Variants */}
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-            <div className="text-sm font-semibold text-white/80">Variants (optional)</div>
+          <div className={SUBPANEL}>
+            <div className="text-sm font-semibold text-black/70">Variants (optional)</div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
-              <select
-                value={vUnit}
-                onChange={(e) => setVUnit(e.target.value as VariantUnit)}
-                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
-              >
-                <option value="l" className="bg-black">l</option>
-                <option value="kg" className="bg-black">kg</option>
+              <select value={vUnit} onChange={(e) => setVUnit(e.target.value as VariantUnit)} className={SELECT}>
+                <option value="l" className="bg-white text-black">l</option>
+                <option value="kg" className="bg-white text-black">kg</option>
               </select>
               <input
                 value={vSize}
                 onChange={(e) => setVSize(e.target.value)}
                 placeholder="Size (e.g. 5L, 1kg)"
-                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                className={INPUT}
               />
               <input
                 value={vPrice}
                 onChange={(e) => setVPrice(e.target.value)}
                 placeholder="Price"
-                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                className={INPUT}
               />
-              <button
-                type="button"
-                onClick={addVariant}
-                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
-              >
+              <button type="button" onClick={addVariant} className={BTN_SOFT}>
                 Add variant
               </button>
             </div>
@@ -722,15 +726,15 @@ export default function AdminProducts() {
             {variants.length > 0 && (
               <div className="mt-3 grid gap-2">
                 {variants.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
-                    <div className="text-xs text-white/80">
-                      {v.size}{v.unit} · R{formatZar(v.price)}
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-black/10"
+                  >
+                    <div className="text-xs text-black/80">
+                      {v.size}
+                      {v.unit} · R{formatZar(v.price)}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(v.id)}
-                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
-                    >
+                    <button type="button" onClick={() => removeVariant(v.id)} className={BTN_SOFT}>
                       Remove
                     </button>
                   </div>
@@ -739,29 +743,26 @@ export default function AdminProducts() {
             )}
           </div>
 
-          <button
-            disabled={busy}
-            className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60"
-          >
+          <button disabled={busy} className={BTN_RED}>
             {busy ? "Saving..." : "Save product"}
           </button>
         </form>
       </div>
 
       {/* Product list */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+      <div className={CARD}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="text-lg font-extrabold text-white">Product list</div>
-            <div className="mt-1 text-xs text-white/45">Filter by category here. Click a product to edit it in the popup.</div>
+            <div className={TITLE}>Product list</div>
+            <div className="mt-1 text-xs text-black/60">Filter by category here. Click a product to edit it in the popup.</div>
           </div>
 
-          <div className="text-sm text-white/60 sm:pt-1">
-            Showing <span className="font-semibold text-white">{filtered.length}</span>
+          <div className="text-sm text-black/60 sm:pt-1">
+            Showing <span className="font-semibold text-black">{filtered.length}</span>
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-3">
+        <div className="mt-4 rounded-2xl border border-black/10 bg-neutral-50 p-3">
           <div className="flex flex-wrap gap-2">
             {["All", ...CATEGORIES].map((c) => {
               const active = c === brandFilter;
@@ -771,9 +772,7 @@ export default function AdminProducts() {
                   type="button"
                   onClick={() => setBrandFilter(c)}
                   className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                    active
-                      ? "bg-[#C43A2F] text-white"
-                      : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
+                    active ? "bg-[#C43A2F] text-white" : "border border-black/15 bg-white text-black/80 hover:bg-neutral-50"
                   }`}
                 >
                   {c}
@@ -791,17 +790,17 @@ export default function AdminProducts() {
                 key={p.id}
                 type="button"
                 onClick={() => setOpenProductId(p.id)}
-                className="w-full text-left rounded-2xl border border-white/10 bg-black/35 px-4 py-3 transition hover:bg-black/45"
+                className="w-full text-left rounded-2xl border border-black/10 bg-white px-4 py-3 transition hover:bg-neutral-50"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-extrabold text-white">{p.name}</div>
-                    <div className="mt-1 truncate text-xs text-white/60">{p.category}</div>
+                    <div className="truncate text-sm font-extrabold text-black">{p.name}</div>
+                    <div className="mt-1 truncate text-xs text-black/60">{p.category}</div>
                   </div>
 
                   <span
                     className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
-                      inStock ? "bg-emerald-500/15 text-emerald-100" : "bg-red-500/15 text-red-100"
+                      inStock ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
                     }`}
                   >
                     {inStock ? "In stock" : "No stock"}
@@ -812,7 +811,7 @@ export default function AdminProducts() {
           })}
 
           {filtered.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-10 text-center text-white/60">
+            <div className="rounded-2xl border border-black/10 bg-neutral-50 p-10 text-center text-black/60">
               No products found.
             </div>
           )}
@@ -827,45 +826,30 @@ export default function AdminProducts() {
             if (e.target === e.currentTarget) setOpenProductId(null);
           }}
         >
-          <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-[#0b0b0b] p-5 shadow-2xl">
+          <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-white p-5 shadow-2xl text-black">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-lg font-extrabold text-white">Edit product</div>
-                <div className="mt-1 text-xs text-white/50">
-                  Changes save to Supabase. Click outside to close.
-                </div>
+                <div className="text-lg font-extrabold text-black">Edit product</div>
+                <div className="mt-1 text-xs text-black/60">Changes save to Supabase. Click outside to close.</div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setOpenProductId(null)}
-                className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-              >
+              <button type="button" onClick={() => setOpenProductId(null)} className={BTN_SOFT}>
                 Close
               </button>
             </div>
 
             {mError && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-900">
                 {mError}
               </div>
             )}
 
             <div className="mt-4 grid grid-cols-1 gap-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  value={mName}
-                  onChange={(e) => setMName(e.target.value)}
-                  placeholder="Product name"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-                />
-                <select
-                  value={mCategory}
-                  onChange={(e) => setMCategory(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
-                >
+                <input value={mName} onChange={(e) => setMName(e.target.value)} placeholder="Product name" className={INPUT} />
+                <select value={mCategory} onChange={(e) => setMCategory(e.target.value)} className={SELECT}>
                   {CATEGORIES.map((c) => (
-                    <option key={c} value={c} className="bg-black">
+                    <option key={c} value={c} className="bg-white text-black">
                       {c}
                     </option>
                   ))}
@@ -877,46 +861,35 @@ export default function AdminProducts() {
                   value={mPrice}
                   onChange={(e) => setMPrice(e.target.value)}
                   placeholder="Base price (or leave if variants)"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 sm:col-span-2"
+                  className={`${INPUT} sm:col-span-2`}
                 />
-                <input
-                  value={mStock}
-                  onChange={(e) => setMStock(e.target.value)}
-                  placeholder="Stock count"
-                  className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-                />
+                <input value={mStock} onChange={(e) => setMStock(e.target.value)} placeholder="Stock count" className={INPUT} />
               </div>
 
               <textarea
                 value={mDescription}
                 onChange={(e) => setMDescription(e.target.value)}
                 placeholder="Description"
-                className="min-h-[110px] rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                className="w-full min-h-[110px] rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
               />
 
               {/* Modal Images */}
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className={SUBPANEL}>
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-white/80">Images</div>
-                  <div className="text-xs text-white/50">Max {MAX_IMAGES_PER_PRODUCT}</div>
+                  <div className="text-sm font-semibold text-black/70">Images</div>
+                  <div className="text-xs text-black/60">Max {MAX_IMAGES_PER_PRODUCT}</div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {mImages.map((url, idx) => (
-                    <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
-                      <div className="max-w-[220px] truncate text-xs text-white/80">{url}</div>
-                      <button
-                        type="button"
-                        onClick={() => removeModalImage(openProductId, idx)}
-                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
-                      >
+                    <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-black/10">
+                      <div className="max-w-[220px] truncate text-xs text-black/80">{url}</div>
+                      <button type="button" onClick={() => removeModalImage(openProductId, idx)} className={BTN_SOFT}>
                         Remove
                       </button>
                     </div>
                   ))}
-                  {mImages.length === 0 && (
-                    <div className="text-xs text-white/50">No images yet.</div>
-                  )}
+                  {mImages.length === 0 && <div className="text-xs text-black/60">No images yet.</div>}
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
@@ -932,7 +905,7 @@ export default function AdminProducts() {
                     type="button"
                     disabled={busy || mImages.length >= MAX_IMAGES_PER_PRODUCT}
                     onClick={triggerModalFilePicker}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10 disabled:opacity-60"
+                    className={`${BTN_SOFT} disabled:opacity-60`}
                   >
                     Upload images
                   </button>
@@ -940,69 +913,52 @@ export default function AdminProducts() {
               </div>
 
               {/* Modal Variants */}
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className={SUBPANEL}>
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-white/80">Variants</div>
-                  <button
-                    type="button"
-                    onClick={addModalVariant}
-                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/10"
-                  >
+                  <div className="text-sm font-semibold text-black/70">Variants</div>
+                  <button type="button" onClick={addModalVariant} className={BTN_SOFT}>
                     Add variant
                   </button>
                 </div>
 
                 <div className="mt-3 grid gap-2">
                   {mVariants.map((v) => (
-                    <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl bg-white/5 p-3 sm:grid-cols-5">
+                    <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl bg-white p-3 border border-black/10 sm:grid-cols-5">
                       <select
                         value={v.unit}
                         onChange={(e) => setModalVariant(v.id, { unit: e.target.value as VariantUnit })}
-                        className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                        className={SELECT}
                       >
-                        <option value="l" className="bg-black">l</option>
-                        <option value="kg" className="bg-black">kg</option>
+                        <option value="l" className="bg-white text-black">l</option>
+                        <option value="kg" className="bg-white text-black">kg</option>
                       </select>
 
                       <input
                         value={v.size}
                         onChange={(e) => setModalVariant(v.id, { size: e.target.value })}
                         placeholder="Size (e.g. 5L, 1kg)"
-                        className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 sm:col-span-2"
+                        className={`${INPUT} sm:col-span-2`}
                       />
 
                       <input
                         value={String(v.price ?? "")}
                         onChange={(e) => setModalVariant(v.id, { price: parseZar(e.target.value) ?? 0 })}
                         placeholder="Price"
-                        className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                        className={INPUT}
                       />
 
-                      <button
-                        type="button"
-                        onClick={() => removeModalVariant(v.id)}
-                        className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-                      >
+                      <button type="button" onClick={() => removeModalVariant(v.id)} className={BTN_SOFT}>
                         Remove
                       </button>
                     </div>
                   ))}
 
-                  {mVariants.length === 0 && (
-                    <div className="text-xs text-white/50">
-                      No variants. Base price will be used.
-                    </div>
-                  )}
+                  {mVariants.length === 0 && <div className="text-xs text-black/60">No variants. Base price will be used.</div>}
                 </div>
               </div>
 
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={saveModal}
-                  className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60"
-                >
+                <button type="button" disabled={busy} onClick={saveModal} className={BTN_RED}>
                   {busy ? "Saving..." : "Save changes"}
                 </button>
 
@@ -1010,7 +966,7 @@ export default function AdminProducts() {
                   type="button"
                   disabled={busy}
                   onClick={deleteModalProduct}
-                  className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm font-extrabold text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                  className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm font-extrabold text-red-900 hover:bg-red-500/15 disabled:opacity-60"
                 >
                   Delete product
                 </button>
@@ -1021,32 +977,19 @@ export default function AdminProducts() {
       )}
 
       {/* FAQs */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+      <div className={CARD}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-lg font-extrabold text-white">FAQs</div>
-            <div className="mt-1 text-sm text-white/60">
-              Manage your FAQ / Info page entries (and publish/unpublish them).
-            </div>
+            <div className={TITLE}>FAQs</div>
+            <div className="mt-1 text-sm text-black/60">Manage your FAQ / Info page entries (and publish/unpublish them).</div>
           </div>
         </div>
 
         <form onSubmit={upsertFaq} className="mt-4 grid gap-3">
-          <input
-            value={faqQ}
-            onChange={(e) => setFaqQ(e.target.value)}
-            placeholder="Question"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
+          <input value={faqQ} onChange={(e) => setFaqQ(e.target.value)} placeholder="Question" className={INPUT} />
+          <textarea value={faqA} onChange={(e) => setFaqA(e.target.value)} placeholder="Answer" className={TEXTAREA} />
 
-          <textarea
-            value={faqA}
-            onChange={(e) => setFaqA(e.target.value)}
-            placeholder="Answer"
-            className="min-h-[90px] rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-
-          <label className="flex items-center gap-2 text-sm text-white/70">
+          <label className="flex items-center gap-2 text-sm text-black/70">
             <input
               type="checkbox"
               checked={faqPublished}
@@ -1057,19 +1000,12 @@ export default function AdminProducts() {
           </label>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <button
-              disabled={faqBusy}
-              className="rounded-xl bg-[#C43A2F] px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#a83228] disabled:opacity-60"
-            >
+            <button disabled={faqBusy} className={BTN_RED}>
               {editingFaqId ? "Update FAQ" : "Add FAQ"}
             </button>
 
             {editingFaqId && (
-              <button
-                type="button"
-                onClick={resetFaqForm}
-                className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
-              >
+              <button type="button" onClick={resetFaqForm} className={BTN_SOFT}>
                 Cancel edit
               </button>
             )}
@@ -1080,26 +1016,22 @@ export default function AdminProducts() {
           {faqs.map((f) => {
             const isPublished = f.published ?? true;
             return (
-              <div key={f.id} className="rounded-2xl border border-white/10 bg-black/35 p-4">
+              <div key={f.id} className="rounded-2xl border border-black/10 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="text-sm font-extrabold text-white">{f.question}</div>
+                  <div className="text-sm font-extrabold text-black">{f.question}</div>
                   <span
                     className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
-                      isPublished ? "bg-emerald-500/15 text-emerald-100" : "bg-white/10 text-white/70"
+                      isPublished ? "bg-emerald-500/15 text-emerald-900" : "bg-black/5 text-black/70"
                     }`}
                   >
                     {isPublished ? "Published" : "Hidden"}
                   </span>
                 </div>
 
-                <div className="mt-2 text-sm text-white/70 whitespace-pre-wrap">{f.answer}</div>
+                <div className="mt-2 text-sm text-black/70 whitespace-pre-wrap">{f.answer}</div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => editFaq(f.id)}
-                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-                  >
+                  <button type="button" onClick={() => editFaq(f.id)} className={BTN_SOFT}>
                     Edit
                   </button>
 
@@ -1107,7 +1039,7 @@ export default function AdminProducts() {
                     type="button"
                     disabled={faqBusy}
                     onClick={() => toggleFaqPublished(f.id, !(f.published ?? true))}
-                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 disabled:opacity-60"
+                    className={`${BTN_SOFT} disabled:opacity-60`}
                   >
                     {(f.published ?? true) ? "Unpublish" : "Publish"}
                   </button>
@@ -1115,7 +1047,7 @@ export default function AdminProducts() {
                   <button
                     type="button"
                     onClick={() => deleteFaq(f.id)}
-                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15"
+                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-900 hover:bg-red-500/15"
                   >
                     Delete
                   </button>
@@ -1125,7 +1057,7 @@ export default function AdminProducts() {
           })}
 
           {faqs.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-10 text-center text-white/60">
+            <div className="rounded-2xl border border-black/10 bg-neutral-50 p-10 text-center text-black/60">
               No FAQs yet.
             </div>
           )}

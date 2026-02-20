@@ -21,7 +21,6 @@ export default function Hero() {
       // progress: 0 at top, 1 when scrolled past hero
       const progress = Math.min(scrollY / (height * 0.35), 1);
 
-
       // VAAL flies out to the LEFT
       if (vaalRef.current) {
         vaalRef.current.style.transform = `translateX(${-progress * 140}px) translateY(${-progress * 30}px)`;
@@ -62,13 +61,12 @@ export default function Hero() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden h-[100svh] w-full flex items-center justify-center"
+      className="relative overflow-hidden min-h-[100svh] w-full flex items-center justify-center"
     >
       <link
-  href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap"
-  rel="stylesheet"
-/>
-
+        href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
 
       {/* Background as its own layer so we can zoom it independently */}
       <div
@@ -87,39 +85,76 @@ export default function Hero() {
       <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
       {/* CENTERED CONTENT WRAPPER */}
-      <div className="relative z-10 flex flex-col items-center justify-center text-center px-6">
-
-        {/* ROW 1 */}
-        <div className="flex items-center justify-center gap-6 leading-none">
+      <div className="relative z-10 w-full px-4 sm:px-6 flex items-center justify-center">
+        {/* 
+          Mobile: flex-col + order puts buttons underneath the full heading.
+          Desktop (sm+): switches to the SAME 2x2 grid layout you had originally.
+        */}
+        <div
+          className="
+            w-full max-w-[1200px]
+            flex flex-col items-center justify-center text-center gap-4
+            sm:grid sm:grid-cols-2 sm:grid-rows-2 sm:gap-x-6 sm:gap-y-2 sm:items-center sm:justify-items-center
+          "
+        >
+          {/* VAAL (Desktop: row1 col1) */}
           <h1
             ref={vaalRef}
-            className="text-[clamp(6rem,21vw,16rem)] leading-none text-white uppercase m-0 will-change-transform"
+            className="
+              text-[clamp(4.5rem,18vw,16rem)] sm:text-[clamp(6rem,21vw,16rem)]
+              leading-none text-white uppercase m-0 will-change-transform
+              order-1
+              sm:order-none sm:col-start-1 sm:row-start-1
+            "
             style={{
-  fontFamily: "Oswald, sans-serif",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
-}}
-
+              fontFamily: "Oswald, sans-serif",
+              fontWeight: 600, // thicker/bolder
+              letterSpacing: "0.02em",
+              transition:
+                "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
+            }}
           >
             VAAL
           </h1>
 
+          {/* EXOTICS (Desktop: row2 col2) */}
+          <h1
+            ref={exoticsRef}
+            className="
+              text-[clamp(4.5rem,18vw,16rem)] sm:text-[clamp(6rem,21vw,16rem)]
+              leading-none text-white uppercase m-0 will-change-transform
+              order-2
+              sm:order-none sm:col-start-2 sm:row-start-2
+            "
+            style={{
+              fontFamily: "Oswald, sans-serif",
+              fontWeight: 600, // thicker/bolder
+              letterSpacing: "0.02em",
+              transition:
+                "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
+            }}
+          >
+            EXOTICS
+          </h1>
+
+          {/* Buttons wrapper for MOBILE only positioning.
+              On desktop we place each button into its original grid cell. */}
+          {/* Herbal button (Desktop: row1 col2) */}
           <Link
             ref={herbalBtnRef}
             to="/bulk-herbal"
             className="
               inline-flex items-center justify-center
+              w-full max-w-[380px] sm:w-auto sm:max-w-none
               px-6 py-4
               text-sm sm:text-base
               font-black tracking-[0.12em] uppercase
-              bg-[#C43A2F]
-              text-white
-              hover:brightness-110
-              hover:scale-[1.02]
+              bg-[#C43A2F] text-white
+              hover:brightness-110 hover:scale-[1.02]
               active:scale-[0.98]
-              shadow-xl
-              will-change-transform
+              shadow-xl will-change-transform
+              order-3
+              sm:order-none sm:col-start-2 sm:row-start-1
             "
             style={{
               fontFamily: "Montserrat, sans-serif",
@@ -128,25 +163,23 @@ export default function Hero() {
           >
             SHOP BULK HERBAL RANGE
           </Link>
-        </div>
 
-        {/* ROW 2 */}
-        <div className="flex items-center justify-center gap-6 leading-none -mt-4 sm:-mt-6">
+          {/* Mushroom button (Desktop: row2 col1) */}
           <Link
             ref={mushroomBtnRef}
             to="/products"
             className="
               inline-flex items-center justify-center
+              w-full max-w-[380px] sm:w-auto sm:max-w-none
               px-6 py-4
               text-sm sm:text-base
               font-black tracking-[0.12em] uppercase
-              bg-[#1a3a5c]
-              text-white
-              hover:brightness-110
-              hover:scale-[1.02]
+              bg-[#1a3a5c] text-white
+              hover:brightness-110 hover:scale-[1.02]
               active:scale-[0.98]
-              shadow-xl
-              will-change-transform
+              shadow-xl will-change-transform
+              order-4
+              sm:order-none sm:col-start-1 sm:row-start-2
             "
             style={{
               fontFamily: "Montserrat, sans-serif",
@@ -155,22 +188,7 @@ export default function Hero() {
           >
             SHOP MUSHROOM RANGE
           </Link>
-
-          <h1
-            ref={exoticsRef}
-            className="text-[clamp(6rem,21vw,16rem)] leading-none text-white uppercase m-0 will-change-transform"
-            style={{
-  fontFamily: "Oswald, sans-serif",
-  fontWeight: 500,
-  letterSpacing: "0.02em",
-  transition: "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
-}}
-
-          >
-            EXOTICS
-          </h1>
         </div>
-
       </div>
     </section>
   );
