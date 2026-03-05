@@ -6,7 +6,12 @@ import { supabase } from "../lib/supabase";
 import ProductQuickView from "../components/ProductQuickView";
 import { useCart } from "../context/cart";
 
-type SortOption = "featured" | "price-asc" | "price-desc" | "name-asc" | "name-desc";
+type SortOption =
+  | "featured"
+  | "price-asc"
+  | "price-desc"
+  | "name-asc"
+  | "name-desc";
 
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
@@ -27,7 +32,9 @@ type ShopProduct = {
   category: string;
   price: number;
   price_cents?: number | null;
-  description: string | null;
+
+  // ✅ allow undefined because other parts of the app may not always select it
+  description?: string | null;
 
   in_stock?: boolean | null;
   stock_count?: number | null;
@@ -103,7 +110,8 @@ function normalizeProductRow(p: any): ShopProduct {
   const hasBase = Number.isFinite(basePrice) && basePrice > 0;
 
   const centsRaw = p?.price_cents;
-  const centsNum = centsRaw === null || centsRaw === undefined ? NaN : Number(centsRaw);
+  const centsNum =
+    centsRaw === null || centsRaw === undefined ? NaN : Number(centsRaw);
   const hasCents = Number.isFinite(centsNum) && centsNum > 0;
 
   const variants = safeArray<any>(p?.variants);
@@ -113,12 +121,20 @@ function normalizeProductRow(p: any): ShopProduct {
 
   const fromVariants = variantPrices.length ? Math.min(...variantPrices) : NaN;
 
-  const price = hasBase ? basePrice : hasCents ? centsNum / 100 : Number.isFinite(fromVariants) ? fromVariants : 0;
+  const price = hasBase
+    ? basePrice
+    : hasCents
+    ? centsNum / 100
+    : Number.isFinite(fromVariants)
+    ? fromVariants
+    : 0;
 
   return {
     ...p,
     variants,
     price,
+    // ✅ ensure description never causes type mismatch surprises
+    description: p?.description ?? null,
   } as ShopProduct;
 }
 
@@ -170,9 +186,9 @@ export default function Products() {
   const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
 
   // ✅ Selected variant per product (same as BulkHerbal)
-  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>(
-    {}
-  );
+  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<
+    Record<string, string>
+  >({});
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -316,7 +332,7 @@ export default function Products() {
     setOpen(true);
   };
 
-  // ✅ FIXED: build the actual cart item shape your cart/Cart.tsx expects
+  // ✅ FIXED: accept optional variant to satisfy ProductQuickView typing
   const addToCart = ({
     product,
     qty,
@@ -324,24 +340,25 @@ export default function Products() {
   }: {
     product: ShopProduct;
     qty: number;
-    variant: ProductVariant | null;
+    variant?: ProductVariant | null;
   }) => {
     const q = Math.max(1, Number(qty || 1));
+    const v = variant ?? null;
 
-    const price = Number(variant?.price ?? product?.price ?? 0);
+    const price = Number(v?.price ?? product?.price ?? 0);
     const safePrice = Number.isFinite(price) ? price : 0;
 
-    const chargeableKg = computeChargeableKg(variant);
+    const chargeableKg = computeChargeableKg(v);
 
     const item = {
-      id: `${product.id}:${variant?.id ?? "base"}`,
-      name: variant ? `${product.name} (${shortVariantLabel(variant)})` : product.name,
+      id: `${product.id}:${v?.id ?? "base"}`,
+      name: v ? `${product.name} (${shortVariantLabel(v)})` : product.name,
       price: safePrice,
       qty: q,
       chargeableKg,
       // optional extras (won't break Cart.tsx)
       productId: product.id,
-      variantId: variant?.id ?? null,
+      variantId: v?.id ?? null,
       imageUrl: getBestImage(product),
     };
 
@@ -360,7 +377,7 @@ export default function Products() {
       } catch {
         // some implementations use fn(product, qty, variant)
         try {
-          fn(product, q, variant);
+          fn(product, q, v);
           return;
         } catch {
           // fall through
@@ -639,7 +656,12 @@ export default function Products() {
                   title="Quick view"
                 >
                   {img ? (
-                    <img src={img} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                    <img
+                      src={img}
+                      alt={p.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
                   ) : (
                     <div className="h-full w-full grid place-items-center text-[10px] text-black/45">
                       No image yet
@@ -649,7 +671,12 @@ export default function Products() {
 
                 {/* Bottom */}
                 <div className="p-2.5">
-                  <button type="button" onClick={() => openPopup(p, idx)} className="w-full text-left" title="Quick view">
+                  <button
+                    type="button"
+                    onClick={() => openPopup(p, idx)}
+                    className="w-full text-left"
+                    title="Quick view"
+                  >
                     <h3 className="text-[12px] font-extrabold tracking-tight text-black leading-snug line-clamp-2">
                       {p.name}
                     </h3>
@@ -660,7 +687,8 @@ export default function Products() {
                     <div className="mt-2">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         {variants.map((v) => {
-                          const selected = (selectedVariant?.id ?? variants[0].id) === v.id;
+                          const selected =
+                            (selectedVariant?.id ?? variants[0].id) === v.id;
 
                           return (
                             <label
@@ -687,7 +715,10 @@ export default function Products() {
                                 {selected && (
                                   <span
                                     className="h-1.5 w-1.5"
-                                    style={{ borderRadius: 9999, backgroundColor: BRAND_RED }}
+                                    style={{
+                                      borderRadius: 9999,
+                                      backgroundColor: BRAND_RED,
+                                    }}
                                   />
                                 )}
                               </span>
@@ -704,7 +735,10 @@ export default function Products() {
                     <div className="text-[9px] uppercase tracking-widest text-black/45">
                       {hasVariants ? "From" : "Price"}
                     </div>
-                    <div className="text-[18px] font-extrabold leading-none" style={{ color: BRAND_RED }}>
+                    <div
+                      className="text-[18px] font-extrabold leading-none"
+                      style={{ color: BRAND_RED }}
+                    >
                       {formatZar(displayPrice)}
                     </div>
                   </div>
@@ -724,7 +758,9 @@ export default function Products() {
                       className={[
                         "w-full inline-flex items-center justify-center px-2 py-2",
                         "text-[12px] font-extrabold transition",
-                        stockOk ? "text-white" : "bg-black/10 text-black/40 cursor-not-allowed",
+                        stockOk
+                          ? "text-white"
+                          : "bg-black/10 text-black/40 cursor-not-allowed",
                         "rounded-none",
                       ].join(" ")}
                       style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}

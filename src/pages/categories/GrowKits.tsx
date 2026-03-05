@@ -25,7 +25,10 @@ type ShopProduct = {
   name: string;
   category: string;
   price: number;
-  description: string | null;
+
+  // ✅ allow undefined; we normalize to null when mapping rows
+  description?: string | null;
+
   in_stock?: boolean | null;
   stock_count?: number | null;
   image_url?: string | null;
@@ -148,7 +151,12 @@ export default function GrowKits() {
         return;
       }
 
-      const list = (data ?? []) as ShopProduct[];
+      // ✅ normalize rows so description is never undefined
+      const list = (data ?? []).map((row: any) => ({
+        ...row,
+        description: row?.description ?? null,
+      })) as ShopProduct[];
+
       setProducts(list);
 
       // ✅ default to cheapest variant (if exists)
@@ -176,6 +184,7 @@ export default function GrowKits() {
     setOpen(true);
   };
 
+  // ✅ FIXED: accept optional variant (matches ProductQuickView typing)
   const addToCart = ({
     product,
     qty,
@@ -183,27 +192,30 @@ export default function GrowKits() {
   }: {
     product: ShopProduct;
     qty: number;
-    variant: ProductVariant | null;
+    variant?: ProductVariant | null;
   }) => {
     const q = Math.max(1, Number(qty || 1));
+    const v = variant ?? null;
 
-    const price = Number(variant?.price ?? product.price ?? 0);
-    const chargeableKg = computeChargeableKgFromVariant(variant);
+    const priceRaw = Number(v?.price ?? product.price ?? 0);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+
+    const chargeableKg = computeChargeableKgFromVariant(v);
 
     // Unique item id per selected variant
-    const itemId = `${product.id}:${variant?.id ?? "base"}`;
+    const itemId = `${product.id}:${v?.id ?? "base"}`;
 
     // Cart.tsx expects: id, name, price, qty, chargeableKg
     const item = {
       id: itemId,
-      name: variant ? `${product.name} (${shortVariantLabel(variant)})` : product.name,
+      name: v ? `${product.name} (${shortVariantLabel(v)})` : product.name,
       price,
       qty: q,
       chargeableKg,
       // keep extra fields if your cart store wants them later
       productId: product.id,
-      variantId: variant?.id ?? null,
-      variant,
+      variantId: v?.id ?? null,
+      variant: v,
       imageUrl: getBestImage(product),
     };
 
@@ -379,9 +391,7 @@ export default function GrowKits() {
                             <label
                               key={v.id}
                               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
-                              title={`${shortVariantLabel(v)} · ${formatZar(
-                                v.price
-                              )}`}
+                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
                             >
                               <input
                                 type="radio"
