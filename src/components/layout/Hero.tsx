@@ -18,36 +18,30 @@ export default function Hero() {
       const scrollY = window.scrollY;
       const height = section.offsetHeight;
 
-      // progress: 0 at top, 1 when scrolled past hero
       const progress = Math.min(scrollY / (height * 0.35), 1);
 
-      // VAAL flies out to the LEFT
       if (vaalRef.current) {
         vaalRef.current.style.transform = `translateX(${-progress * 140}px) translateY(${-progress * 30}px)`;
         vaalRef.current.style.opacity = `${1 - progress * 1.4}`;
         vaalRef.current.style.filter = `blur(${progress * 8}px)`;
       }
 
-      // EXOTICS flies out to the RIGHT
       if (exoticsRef.current) {
         exoticsRef.current.style.transform = `translateX(${progress * 140}px) translateY(${progress * 30}px)`;
         exoticsRef.current.style.opacity = `${1 - progress * 1.4}`;
         exoticsRef.current.style.filter = `blur(${progress * 8}px)`;
       }
 
-      // Herbal button dissolves UP and fades
       if (herbalBtnRef.current) {
         herbalBtnRef.current.style.transform = `translateY(${-progress * 60}px) scale(${1 - progress * 0.15})`;
         herbalBtnRef.current.style.opacity = `${1 - progress * 2}`;
       }
 
-      // Mushroom button dissolves DOWN and fades
       if (mushroomBtnRef.current) {
         mushroomBtnRef.current.style.transform = `translateY(${progress * 60}px) scale(${1 - progress * 0.15})`;
         mushroomBtnRef.current.style.opacity = `${1 - progress * 2}`;
       }
 
-      // Background slowly zooms in as you scroll
       if (bgRef.current) {
         bgRef.current.style.transform = `scale(${1 + progress * 0.12})`;
         bgRef.current.style.filter = `brightness(${1 - progress * 0.3})`;
@@ -68,7 +62,6 @@ export default function Hero() {
         rel="stylesheet"
       />
 
-      {/* Background as its own layer so we can zoom it independently */}
       <div
         ref={bgRef}
         className="absolute inset-0 will-change-transform"
@@ -81,15 +74,9 @@ export default function Hero() {
         }}
       />
 
-      {/* Soft overlay */}
       <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
-      {/* CENTERED CONTENT WRAPPER */}
       <div className="relative z-10 w-full px-4 sm:px-6 flex items-center justify-center">
-        {/* 
-          Mobile: flex-col + order puts buttons underneath the full heading.
-          Desktop (sm+): switches to the SAME 2x2 grid layout you had originally.
-        */}
         <div
           className="
             w-full max-w-[1200px]
@@ -97,7 +84,6 @@ export default function Hero() {
             sm:grid sm:grid-cols-2 sm:grid-rows-2 sm:gap-x-6 sm:gap-y-2 sm:items-center sm:justify-items-center
           "
         >
-          {/* VAAL (Desktop: row1 col1) */}
           <h1
             ref={vaalRef}
             className="
@@ -108,7 +94,7 @@ export default function Hero() {
             "
             style={{
               fontFamily: "Oswald, sans-serif",
-              fontWeight: 600, // thicker/bolder
+              fontWeight: 600,
               letterSpacing: "0.02em",
               transition:
                 "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
@@ -117,7 +103,6 @@ export default function Hero() {
             VAAL
           </h1>
 
-          {/* EXOTICS (Desktop: row2 col2) */}
           <h1
             ref={exoticsRef}
             className="
@@ -128,7 +113,7 @@ export default function Hero() {
             "
             style={{
               fontFamily: "Oswald, sans-serif",
-              fontWeight: 600, // thicker/bolder
+              fontWeight: 600,
               letterSpacing: "0.02em",
               transition:
                 "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
@@ -137,9 +122,7 @@ export default function Hero() {
             EXOTICS
           </h1>
 
-          {/* Buttons wrapper for MOBILE only positioning.
-              On desktop we place each button into its original grid cell. */}
-          {/* Herbal button (Desktop: row1 col2) */}
+          {/* ✅ ONLY CHANGE: sm:-translate-x-16 */}
           <Link
             ref={herbalBtnRef}
             to="/bulk-herbal"
@@ -155,6 +138,7 @@ export default function Hero() {
               shadow-xl will-change-transform
               order-3
               sm:order-none sm:col-start-2 sm:row-start-1
+              sm:-translate-x-16
             "
             style={{
               fontFamily: "Montserrat, sans-serif",
@@ -164,23 +148,23 @@ export default function Hero() {
             SHOP BULK HERBAL RANGE
           </Link>
 
-          {/* Mushroom button (Desktop: row2 col1) */}
           <Link
-            ref={mushroomBtnRef}
-            to="/products"
-            className="
-              inline-flex items-center justify-center
-              w-full max-w-[380px] sm:w-auto sm:max-w-none
-              px-6 py-4
-              text-sm sm:text-base
-              font-black tracking-[0.12em] uppercase
-              bg-[#1a3a5c] text-white
-              hover:brightness-110 hover:scale-[1.02]
-              active:scale-[0.98]
-              shadow-xl will-change-transform
-              order-4
-              sm:order-none sm:col-start-1 sm:row-start-2
-            "
+  ref={mushroomBtnRef}
+  to="/products"
+  className="
+    inline-flex items-center justify-center
+    w-full max-w-[380px] sm:w-auto sm:max-w-none
+    px-6 py-4
+    text-sm sm:text-base
+    font-black tracking-[0.12em] uppercase
+    bg-[#1a3a5c] text-white
+    hover:brightness-110 hover:scale-[1.02]
+    active:scale-[0.98]
+    shadow-xl will-change-transform
+    order-4
+    sm:order-none sm:col-start-1 sm:row-start-2
+    sm:-translate-x-16
+  "
             style={{
               fontFamily: "Montserrat, sans-serif",
               transition: "transform 0.05s linear, opacity 0.05s linear",

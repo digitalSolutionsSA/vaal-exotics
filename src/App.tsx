@@ -10,12 +10,12 @@ import About from "./pages/About";
 import Disclaimer from "./pages/Disclaimer";
 
 import Home from "./pages/Home";
-import Shop from "./pages/Shop";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
 import Products from "./pages/Products";
 import FAQ from "./pages/FAQ";
+
 
 // Admin
 import AdminLogin from "./pages/AdminLogin";
@@ -48,22 +48,28 @@ function AppShell() {
             {/* Public */}
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<Products />} />
-            <Route path="/shop" element={<Shop />} />
+
+         
+
             <Route path="/faq" element={<FAQ />} />
             <Route path="/about" element={<About />} />
             <Route path="/disclaimer" element={<Disclaimer />} />
 
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
+
+            {/* YOCO return routes */}
+            <Route path="/payment/success" element={<OrderSuccess />} />
+            <Route path="/payment/cancel" element={<Navigate to="/checkout" replace />} />
+            <Route path="/payment/failed" element={<Navigate to="/checkout" replace />} />
+
+            {/* Backwards compatible success route */}
             <Route path="/order/success" element={<OrderSuccess />} />
 
-            {/* Admin routes (FIXED) */}
-            {/* Backwards compat: if you go to /admin, send to login (or you can send to /admin/products) */}
+            {/* Admin routes */}
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-
             <Route path="/admin/login" element={<AdminLogin />} />
 
-            {/* Optional: make /admin/products the default admin landing */}
             <Route
               path="/admin/products"
               element={
@@ -75,12 +81,40 @@ function AppShell() {
               }
             />
 
-            {/* Category pages */}
+            {/* Category pages (primary) */}
             <Route path="/mushrooms/grow-kits" element={<GrowKits />} />
             <Route path="/mushrooms/grain-and-cultures" element={<GrainCultures />} />
-            <Route path="/mushrooms/cultivation-supplies" element={<CultivationSupplies />} />
-            <Route path="/mushrooms/medicinal-supplements" element={<MedicinalSupplements />} />
+            <Route
+              path="/mushrooms/cultivation-supplies"
+              element={<CultivationSupplies />}
+            />
+            <Route
+              path="/mushrooms/medicinal-supplements"
+              element={<MedicinalSupplements />}
+            />
             <Route path="/bulk-herbal" element={<BulkHerbal />} />
+
+            {/* ✅ Compatibility routes (old /shop links) */}
+            <Route
+              path="/shop/growkits"
+              element={<Navigate to="/mushrooms/grow-kits" replace />}
+            />
+            <Route
+              path="/shop/grain-and-cultures"
+              element={<Navigate to="/mushrooms/grain-and-cultures" replace />}
+            />
+            <Route
+              path="/shop/cultivation-supplies"
+              element={<Navigate to="/mushrooms/cultivation-supplies" replace />}
+            />
+            <Route
+              path="/shop/medicinal-supplements"
+              element={<Navigate to="/mushrooms/medicinal-supplements" replace />}
+            />
+            <Route
+              path="/shop/bulk-herbal"
+              element={<Navigate to="/bulk-herbal" replace />}
+            />
 
             {/* Redirect helpers */}
             <Route
@@ -89,6 +123,7 @@ function AppShell() {
             />
             <Route path="/herbal" element={<Navigate to="/bulk-herbal" replace />} />
 
+            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

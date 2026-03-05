@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, ShoppingCart, Menu, X, ChevronDown } from "lucide-react";
+import { ShoppingCart, Menu, X, ChevronDown } from "lucide-react";
 import logo from "../../assets/vaalexotics-logo.png";
 import { useCart } from "../../context/cart";
 
@@ -46,6 +46,7 @@ export default function Navbar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mushroomsOpen, setMushroomsOpen] = useState(false);
+  const [mobileMushroomsOpen, setMobileMushroomsOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -57,12 +58,14 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
     setMushroomsOpen(false);
+    setMobileMushroomsOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target as Node)) setMushroomsOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setMushroomsOpen(false);
+      }
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
@@ -72,26 +75,17 @@ export default function Navbar() {
     "text-[12px] sm:text-[13px] font-semibold tracking-widest uppercase whitespace-nowrap transition-colors";
 
   const navLink = ({ isActive }: { isActive: boolean }) =>
-    `${navBase} ${
-      isActive ? "text-black" : "text-black/70 hover:text-black"
-    }`;
+    `${navBase} ${isActive ? "text-black" : "text-black/70 hover:text-black"}`;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      {/* WHITE NAVBAR */}
       <div className="bg-white border-b border-black/10 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="h-20 flex items-center justify-between gap-4">
             {/* LEFT: Logo */}
             <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Home">
-              <img
-                src={logo}
-                alt="Vaal Exotics"
-                className="h-14 w-auto object-contain"
-              />
-              <span className="hidden md:block text-black font-extrabold tracking-widest">
-                
-              </span>
+              <img src={logo} alt="Vaal Exotics" className="h-14 w-auto object-contain" />
+              <span className="hidden md:block text-black font-extrabold tracking-widest"></span>
             </Link>
 
             {/* CENTER NAV */}
@@ -120,7 +114,6 @@ export default function Navbar() {
                 {mushroomsOpen && (
                   <>
                     <div className="absolute left-1/2 top-full h-4 w-[360px] -translate-x-1/2" />
-
                     <div className="absolute left-1/2 top-full mt-4 w-[320px] -translate-x-1/2 rounded-xl border border-black/10 bg-white shadow-xl overflow-hidden">
                       <div className="py-2">
                         <Link
@@ -160,15 +153,12 @@ export default function Navbar() {
               <NavLink to="/bulk-herbal" className={navLink}>
                 BULK HERBAL
               </NavLink>
-
               <NavLink to="/faq" className={navLink}>
                 FAQ
               </NavLink>
-
               <NavLink to="/disclaimer" className={navLink}>
                 DISCLAIMER
               </NavLink>
-
               <NavLink to="/about" className={navLink}>
                 ABOUT
               </NavLink>
@@ -176,13 +166,6 @@ export default function Navbar() {
 
             {/* RIGHT ICONS */}
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-full text-black/70 hover:text-black hover:bg-black/5 transition"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-
               <Link
                 to="/cart"
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-black/70 hover:text-black hover:bg-black/5 transition"
@@ -222,11 +205,55 @@ export default function Navbar() {
             <div className="lg:hidden pb-4">
               <div className="mt-2 rounded-2xl border border-black/10 bg-white shadow-lg overflow-hidden">
                 <div className="p-3 grid gap-2">
-                  <NavLink to="/" className={navLink}>HOME</NavLink>
-                  <NavLink to="/bulk-herbal" className={navLink}>BULK HERBAL</NavLink>
-                  <NavLink to="/faq" className={navLink}>FAQ</NavLink>
-                  <NavLink to="/disclaimer" className={navLink}>DISCLAIMER</NavLink>
-                  <NavLink to="/about" className={navLink}>ABOUT</NavLink>
+                  <NavLink to="/" className={navLink}>
+                    HOME
+                  </NavLink>
+
+                  {/* MOBILE MUSHROOMS DROPDOWN */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileMushroomsOpen((v) => !v)}
+                    className={`${navBase} ${
+                      mushroomsActive ? "text-black" : "text-black/70 hover:text-black"
+                    } flex items-center justify-between text-left`}
+                  >
+                    <span>MUSHROOMS</span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-black/60 transition-transform ${
+                        mobileMushroomsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {mobileMushroomsOpen && (
+                    <div className="ml-2 pl-3 border-l border-black/10 grid gap-2">
+                      <NavLink to="/mushrooms/grow-kits" className={navLink}>
+                        Grow Kits
+                      </NavLink>
+                      <NavLink to="/mushrooms/grain-and-cultures" className={navLink}>
+                        Grain & Cultures
+                      </NavLink>
+                      <NavLink to="/mushrooms/cultivation-supplies" className={navLink}>
+                        Cultivation Supplies
+                      </NavLink>
+                      <NavLink to="/mushrooms/medicinal-supplements" className={navLink}>
+                        Medicinal Supplements
+                      </NavLink>
+                    </div>
+                  )}
+
+                  <NavLink to="/bulk-herbal" className={navLink}>
+                    BULK HERBAL
+                  </NavLink>
+                  <NavLink to="/faq" className={navLink}>
+                    FAQ
+                  </NavLink>
+                  <NavLink to="/disclaimer" className={navLink}>
+                    DISCLAIMER
+                  </NavLink>
+                  <NavLink to="/about" className={navLink}>
+                    ABOUT
+                  </NavLink>
 
                   <div className="border-t border-black/10 pt-2">
                     <Link to="/cart" className="text-black/70 hover:text-black">

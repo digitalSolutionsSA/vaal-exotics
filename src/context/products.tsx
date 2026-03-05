@@ -201,17 +201,18 @@ export default function Products() {
     >
       <div className="absolute inset-0 bg-black/75" />
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
+      {/* Wider + smarter padding (mobile → desktop) */}
+      <div className="relative mx-auto w-full max-w-[2400px] px-3 sm:px-4 lg:px-6 py-10 sm:py-14">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1
-              className="text-3xl font-extrabold text-white sm:text-4xl"
+              className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white"
               style={{ fontFamily: "Montserrat, sans-serif" }}
             >
               VIEW PRODUCTS
             </h1>
-            <p className="mt-2 text-sm text-white/70 sm:text-base">
+            <p className="mt-2 text-xs sm:text-sm lg:text-base text-white/70">
               All categories in one place. Filter by category, price and search.
             </p>
           </div>
@@ -358,16 +359,53 @@ export default function Products() {
               No products match your filters.
             </div>
           ) : (
-            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((p: any) => (
-                <ProductQuickView
-                  key={p.id}
-                  // ✅ Normalize in_stock so TS + ProductQuickView stop crying
-                  product={{ ...p, in_stock: !!p.in_stock }}
-                  onAddToCart={addToCart}
-                />
-              ))}
-            </div>
+            <>
+              {/* PACK MORE PRODUCTS PER SCREEN:
+                  auto-fill grid + breakpoint min widths */}
+              <div
+                className="
+                  mt-6
+                  grid
+                  gap-3 sm:gap-4 lg:gap-4
+                  [grid-template-columns:repeat(auto-fill,minmax(165px,1fr))]
+                  sm:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+                  md:[grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]
+                  lg:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]
+                  xl:[grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]
+                "
+              >
+                {filtered.map((p: any) => (
+                  <div
+                    key={p.id}
+                    className="
+                      h-full
+                      flex
+                      flex-col
+                      rounded-2xl
+                      overflow-hidden
+                      bg-white
+                      border border-black/10
+                      shadow-sm
+                    "
+                  >
+                    {/* This wrapper forces consistent card sizing in the grid,
+                        even if ProductQuickView has variable internals */}
+                    <div className="flex-1 flex flex-col">
+                      <ProductQuickView
+                        // ✅ Normalize in_stock so TS + ProductQuickView stop crying
+                        product={{ ...p, in_stock: !!p.in_stock }}
+                        onAddToCart={addToCart}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Small note for ultra-wide screens: keeps things feeling intentional */}
+              <div className="mt-3 text-[11px] text-white/45">
+                Tip: On large screens you’ll see more columns automatically. No weird oversized cards.
+              </div>
+            </>
           )}
         </div>
       </div>

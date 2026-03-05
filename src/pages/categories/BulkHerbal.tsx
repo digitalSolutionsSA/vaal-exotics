@@ -86,7 +86,6 @@ function normalizeVariants(p: ShopProduct): ProductVariant[] {
 }
 
 function shortVariantLabel(v: ProductVariant) {
-  // e.g. "1KG" or "500L" (you can tweak formatting later)
   return `${v.size}${v.unit.toUpperCase()}`;
 }
 
@@ -226,7 +225,7 @@ export default function BulkHerbal() {
       `\n\nEstimated total: ${formatZar(cartTotal)}\n\n` +
       `Please confirm availability and final pricing. Thanks!`;
 
-    const numberToUse = OWNER_WHATSAPP || ""; // if empty, wa.me still opens but won't target a chat
+    const numberToUse = OWNER_WHATSAPP || "";
     const url = buildWhatsappUrl(numberToUse, message);
 
     window.open(url, "_blank", "noopener,noreferrer");
@@ -234,6 +233,7 @@ export default function BulkHerbal() {
 
   return (
     <main className="relative min-h-screen text-black">
+      {/* Background */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -244,19 +244,34 @@ export default function BulkHerbal() {
         }}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 pt-16 pb-28">
+      {/* Content */}
+      <div className="relative z-10 mx-auto w-full max-w-[2400px] px-3 sm:px-4 lg:px-6 pt-14 sm:pt-16 pb-[170px] sm:pb-[190px]">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-extrabold text-white">Bulk Herbal Products</h1>
-            <p className="mt-2 text-white/80 text-sm">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
+              Bulk Herbal Products
+            </h1>
+            <p className="mt-2 text-white/80 text-xs sm:text-sm">
               Add items to your enquiry list, then send via WhatsApp.
             </p>
           </div>
         </div>
 
-        {loading && <div className="mt-8 text-white">Loading products...</div>}
+        {loading && <div className="mt-6 text-white">Loading products...</div>}
 
-        <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        {/* Responsive “pack as many cards as possible” grid */}
+        <div
+          className="
+            mt-6
+            grid
+            gap-2 sm:gap-3 lg:gap-3
+            [grid-template-columns:repeat(auto-fill,minmax(165px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+            md:[grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(230px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]
+          "
+        >
           {filteredProducts.map((p) => {
             const img = getBestImage(p);
             const variants = normalizeVariants(p);
@@ -267,13 +282,23 @@ export default function BulkHerbal() {
                 : null;
 
             const displayPrice = selectedVariant?.price ?? Number(p.price ?? 0);
+            const desc = shortDesc(p.description);
 
             return (
               <div
                 key={p.id}
-                className="bg-white/90 border border-black/10 shadow flex flex-col h-full"
+                className="
+                  bg-white
+                  border border-gray-200
+                  shadow-sm
+                  rounded-xl
+                  overflow-hidden
+                  flex flex-col
+                  h-full
+                "
               >
-                <div className="aspect-square bg-black/5 border-b border-black/10">
+                {/* Shorter image to fit more products in view */}
+                <div className="aspect-[4/3] bg-black/5 border-b border-black/10">
                   {img && (
                     <img
                       src={img}
@@ -284,55 +309,80 @@ export default function BulkHerbal() {
                   )}
                 </div>
 
-                <div className="p-3 flex-1 flex flex-col">
-                  <h3 className="text-sm font-extrabold line-clamp-2">{p.name}</h3>
+                {/* Structured content: fixed “slots” so everything aligns */}
+                <div
+                  className="
+                    p-2.5 sm:p-3
+                    flex-1
+                    grid
+                    grid-rows-[auto_auto_auto_auto_1fr_auto]
+                    gap-2
+                  "
+                >
+                  {/* Title */}
+                  <h3 className="text-[12px] sm:text-sm font-extrabold leading-snug line-clamp-2">
+                    {p.name}
+                  </h3>
 
-                  {shortDesc(p.description) && (
-                    <p className="mt-1 text-xs text-black/60 line-clamp-2">
-                      {shortDesc(p.description)}
-                    </p>
-                  )}
+                  {/* Description slot (always reserves space) */}
+                  <div className="min-h-[32px]">
+                    {desc ? (
+                      <p className="text-[11px] sm:text-xs text-black/60 leading-snug line-clamp-2">
+                        {desc}
+                      </p>
+                    ) : (
+                      <div className="h-[32px]" />
+                    )}
+                  </div>
 
-                  {/* Variant selector (only if variants exist) */}
-                  {variants.length > 0 && (
-                    <div className="mt-2">
-                      <label className="text-[10px] font-semibold text-black/60">
-                        Size
-                      </label>
-                      <select
-                        value={selectedVariant?.id ?? ""}
-                        onChange={(e) =>
-                          setSelectedVariantByProduct((prev) => ({
-                            ...prev,
-                            [p.id]: e.target.value,
-                          }))
-                        }
-                        className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-xs outline-none"
-                      >
-                        {variants.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {shortVariantLabel(v)} · {formatZar(v.price)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  {/* Variant slot (always reserves space) */}
+                  <div className="min-h-[56px]">
+                    {variants.length > 0 ? (
+                      <div>
+                        <label className="text-[10px] font-semibold text-black/60">
+                          Size
+                        </label>
+                        <select
+                          value={selectedVariant?.id ?? ""}
+                          onChange={(e) =>
+                            setSelectedVariantByProduct((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-xs outline-none"
+                        >
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {shortVariantLabel(v)} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="h-[56px]" />
+                    )}
+                  </div>
 
-                  <div className="mt-2 text-lg font-extrabold text-red-700">
+                  {/* Price slot */}
+                  <div className="text-base sm:text-lg font-extrabold text-red-700">
                     {formatZar(displayPrice)}
                   </div>
 
-                  {/* Pinned bottom section */}
-                  <div className="mt-auto pt-3">
+                  {/* Spacer row */}
+                  <div />
+
+                  {/* Actions pinned consistently */}
+                  <div className="pt-1">
                     <button
                       onClick={() => addToEnquiry(p)}
-                      className="w-full py-2 text-xs font-extrabold text-white rounded-md"
+                      className="w-full py-2 text-[11px] sm:text-xs font-extrabold text-white rounded-md"
                       style={{ backgroundColor: BRAND_BLUE }}
                     >
                       Add to enquiry
                     </button>
 
-                    <div className="mt-1 text-[10px] text-black/50 text-center">
+                    <div className="mt-1 text-[10px] text-black/45 text-center leading-snug">
                       Add items then send via WhatsApp.
                     </div>
                   </div>
@@ -342,15 +392,15 @@ export default function BulkHerbal() {
           })}
         </div>
 
-        {/* Sticky Enquiry Bar (mobile-friendly, always visible) */}
-        <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 w-[min(680px,calc(100%-24px))]">
-          <div className="bg-white/95 backdrop-blur border border-black/10 shadow-lg rounded-2xl px-4 py-3">
+        {/* Sticky Enquiry Bar */}
+        <div className="fixed bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-20 w-[min(760px,calc(100%-16px))]">
+          <div className="bg-white/95 backdrop-blur border border-black/10 shadow-lg rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-extrabold text-black">
+                <div className="text-[11px] sm:text-xs font-extrabold text-black">
                   Enquiry cart: {cartCount} item{cartCount === 1 ? "" : "s"}
                 </div>
-                <div className="text-[11px] text-black/60 truncate">
+                <div className="text-[10px] sm:text-[11px] text-black/60 truncate">
                   Estimated total: {formatZar(cartTotal)}
                 </div>
               </div>
@@ -375,7 +425,7 @@ export default function BulkHerbal() {
               </div>
             </div>
 
-            {/* Tiny removable list (only if items exist) */}
+            {/* Tiny removable list */}
             {enquiryCart.length > 0 && (
               <div className="mt-2 max-h-28 overflow-auto">
                 <div className="space-y-1">

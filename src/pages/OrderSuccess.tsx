@@ -1,29 +1,73 @@
 import { formatZAR } from "../lib/money";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useCart } from "../context/cart";
+
+function useQuery() {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
+}
 
 export default function OrderSuccess() {
-  const raw = sessionStorage.getItem("lastOrder");
-  const order = raw ? JSON.parse(raw) : null;
+  const cart = useCart();
+  const q = useQuery();
+
+  // YOCO successUrl includes orderId
+  const orderId = q.get("orderId") || "";
+
+  // New key used by Checkout.tsx
+  const raw =
+    sessionStorage.getItem("pendingOrder") ||
+    sessionStorage.getItem("lastOrder"); // backwards compat
+  const [order] = useState<any>(() => (raw ? JSON.parse(raw) : null));
+
+  // Clear cart once when landing here
+  useEffect(() => {
+    try {
+      const clearedKey = `order_cleared_${orderId || "noid"}`;
+      if (sessionStorage.getItem(clearedKey)) return;
+      cart.clear();
+      sessionStorage.setItem(clearedKey, "1");
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   if (!order) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center p-10">
         <div className="max-w-lg text-center">
-          <h1 className="text-2xl font-semibold">No order found</h1>
-          <p className="mt-2 text-white/70">This is a dummy portal. Make an order first.</p>
-          <Link to="/shop" className="mt-6 inline-flex rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black">
-            Back to shop
-          </Link>
+          <h1 className="text-2xl font-semibold">No order details found</h1>
+          <p className="mt-2 text-white/70">
+            We couldn’t load the order summary from this device/session. If you just paid,
+            your payment reference should still be recorded on the merchant side.
+          </p>
+          <div className="mt-6 flex gap-3 justify-center">
+            <Link
+              to="/shop"
+              className="inline-flex rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black"
+            >
+              Back to shop
+            </Link>
+            <Link
+              to="/checkout"
+              className="inline-flex rounded-lg border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/90"
+            >
+              Back to checkout
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
+  // Build a preview message for the owner (email/WhatsApp later)
   const ownerMessage = [
-    `✅ PAID ORDER: ${order.orderId}`,
-    `Paid at: ${order.paidAt}`,
+    `✅ ORDER COMPLETED${orderId ? `: ${orderId}` : ""}`,
+    order?.createdAt ? `Created: ${order.createdAt}` : "",
     ``,
-    `Amount paid: ${formatZAR(order.totals.grandTotal)}`,
+    `Amount: ${formatZAR(order.totals.grandTotal)}`,
     `Courier: ${formatZAR(order.totals.courierFee)} (Total kg: ${order.totals.totalKg.toFixed(1)}kg)`,
     ``,
     `Customer: ${order.customer.firstName} ${order.customer.lastName}`,
@@ -37,28 +81,49 @@ export default function OrderSuccess() {
     `${order.address.province}, ${order.address.postalCode}`,
     ``,
     `Items:`,
-    ...order.items.map((it: any) => `- ${it.qty}x ${it.name} @ ${formatZAR(it.price)} each`),
-  ].filter(Boolean).join("\n");
+    ...order.items.map(
+      (it: any) => `- ${it.qty}x ${it.name} @ ${formatZAR(it.price)} each`
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10">
-          <h1 className="text-3xl font-semibold">Payment successful (dummy)</h1>
+          <h1 className="text-3xl font-semibold">Payment completed</h1>
           <p className="mt-2 text-white/70">
-            In the real build: this is where Yoco confirms payment and the webhook sends WhatsApp + Email automatically.
+            Thanks! Your checkout was completed. Final confirmation and the owner notification will be automated via webhook next.
           </p>
+
+          {orderId ? (
+            <p className="mt-2 text-sm text-white/60">
+              Reference: <span className="font-semibold text-white">{orderId}</span>
+            </p>
+          ) : null}
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
               <h2 className="text-lg font-semibold">Order summary</h2>
               <div className="mt-3 text-sm text-white/80 space-y-2">
-                <div className="flex justify-between"><span>Items total</span><span>{formatZAR(order.totals.itemsTotal)}</span></div>
-                <div className="flex justify-between"><span>Courier</span><span>{formatZAR(order.totals.courierFee)}</span></div>
-                <div className="flex justify-between"><span>Total kg</span><span>{order.totals.totalKg.toFixed(1)}kg</span></div>
+                <div className="flex justify-between">
+                  <span>Items total</span>
+                  <span>{formatZAR(order.totals.itemsTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Courier</span>
+                  <span>{formatZAR(order.totals.courierFee)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total kg</span>
+                  <span>{order.totals.totalKg.toFixed(1)}kg</span>
+                </div>
                 <div className="flex justify-between text-base pt-2 border-t border-white/10">
                   <span>Grand total</span>
-                  <span className="text-lg font-semibold">{formatZAR(order.totals.grandTotal)}</span>
+                  <span className="text-lg font-semibold">
+                    {formatZAR(order.totals.grandTotal)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -66,7 +131,7 @@ export default function OrderSuccess() {
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
               <h2 className="text-lg font-semibold">Owner notification preview</h2>
               <p className="mt-2 text-xs text-white/60">
-                This is the exact message we’ll send automatically via Email/WhatsApp when webhooks are live.
+                This is the message we’ll send automatically via email/WhatsApp once webhooks are enabled.
               </p>
               <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
                 {ownerMessage}
@@ -75,10 +140,16 @@ export default function OrderSuccess() {
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/shop" className="inline-flex justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90">
+            <Link
+              to="/shop"
+              className="inline-flex justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90"
+            >
               Shop again
             </Link>
-            <Link to="/" className="inline-flex justify-center rounded-lg border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/90 hover:bg-white/10">
+            <Link
+              to="/"
+              className="inline-flex justify-center rounded-lg border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/90 hover:bg-white/10"
+            >
               Back home
             </Link>
           </div>

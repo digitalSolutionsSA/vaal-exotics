@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import growBg from "../../assets/new-bg.png";
 import { CATEGORY, normCategory } from "../../lib/category";
 import ProductQuickView from "../../components/ProductQuickView";
+import { useCart } from "../../context/cart";
 
 const CAT = CATEGORY.growkits;
 
@@ -91,7 +92,30 @@ function shortVariantLabel(v: ProductVariant) {
   return `${v.size}${v.unit.toUpperCase()}`;
 }
 
+function parseSizeNumber(size: string) {
+  // handles "2.5" or "2,5" or "2.5 " etc
+  const cleaned = String(size).trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeChargeableKgFromVariant(variant: ProductVariant | null) {
+  if (!variant) return 1; // MVP fallback so courier calc doesn't implode
+
+  const amount = parseSizeNumber(variant.size);
+
+  // MVP rule:
+  // - kg stays kg
+  // - liters treated as equivalent weight (1L ~= 1kg) unless you implement a real shipping table
+  if (variant.unit === "kg") return amount > 0 ? amount : 1;
+  if (variant.unit === "l") return amount > 0 ? amount : 1;
+
+  return 1;
+}
+
 export default function GrowKits() {
+  const cart = useCart();
+
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -152,9 +176,54 @@ export default function GrowKits() {
     setOpen(true);
   };
 
-  const addToCart = ({ product, qty, variant }: any) => {
-    // Replace this with your real cart context call
-    console.log("ADD TO CART:", { productId: product.id, qty, variant });
+  const addToCart = ({
+    product,
+    qty,
+    variant,
+  }: {
+    product: ShopProduct;
+    qty: number;
+    variant: ProductVariant | null;
+  }) => {
+    const q = Math.max(1, Number(qty || 1));
+
+    const price = Number(variant?.price ?? product.price ?? 0);
+    const chargeableKg = computeChargeableKgFromVariant(variant);
+
+    // Unique item id per selected variant
+    const itemId = `${product.id}:${variant?.id ?? "base"}`;
+
+    // Cart.tsx expects: id, name, price, qty, chargeableKg
+    const item = {
+      id: itemId,
+      name: variant ? `${product.name} (${shortVariantLabel(variant)})` : product.name,
+      price,
+      qty: q,
+      chargeableKg,
+      // keep extra fields if your cart store wants them later
+      productId: product.id,
+      variantId: variant?.id ?? null,
+      variant,
+      imageUrl: getBestImage(product),
+    };
+
+    const anyCart = cart as any;
+
+    if (typeof anyCart.addItem === "function") {
+      anyCart.addItem(item);
+      return;
+    }
+
+    // fallback if your cart uses a different API name
+    if (typeof anyCart.addToCart === "function") {
+      anyCart.addToCart(item);
+      return;
+    }
+
+    console.error(
+      "Cart context has no addItem/addToCart. Check src/context/cart.tsx API.",
+      cart
+    );
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import growImg from "../../assets/grow-bg.png";
 import grainImg from "../../assets/grain-bg.png";
@@ -77,7 +77,7 @@ function AnimatedHeading() {
   return (
     <div
       ref={ref}
-      className="text-center mb-12"
+      className="text-center mb-6 sm:mb-12"
       style={{
         transitionProperty: "opacity, transform",
         transitionDuration: inView ? "750ms" : "300ms",
@@ -88,46 +88,61 @@ function AnimatedHeading() {
       }}
     >
       <h2
-          className="text-4xl sm:text-5xl font-extrabold uppercase tracking-widest text-white text-center"
-          style={{
-            textShadow:
-              "0 18px 60px rgba(0,0,0,0.95), 0 6px 18px rgba(0,0,0,0.88), 0 0 34px rgba(0,0,0,0.80)",
-          }}
-        >
-          Shop by category
-        </h2>
+        className="text-3xl sm:text-5xl font-extrabold uppercase tracking-widest text-white text-center"
+        style={{
+          textShadow:
+            "0 18px 60px rgba(0,0,0,0.95), 0 6px 18px rgba(0,0,0,0.88), 0 0 34px rgba(0,0,0,0.80)",
+        }}
+      >
+        Shop by category
+      </h2>
 
-      <p className="mt-3 text-sm sm:text-base text-white/70">
+      <p className="mt-2 sm:mt-3 text-xs sm:text-base text-white/70">
         Pick what you need and jump straight into the good stuff.
       </p>
     </div>
   );
 }
 
-// ── Card: fall-from-sky animation, staggered ──────────────────────────────
+// ── Card: click-to-navigate (bulletproof) ─────────────────────────────────
 function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
+  const nav = useNavigate();
   const ref = useRef<HTMLDivElement | null>(null);
-  const [inView, setInView] = useState(false);
+
+  // ✅ Always visible. We animate *in* when possible, never hide forever.
+  const [inView, setInView] = useState(true);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     const obs = new IntersectionObserver(
-      (entries) => setInView(entries[0]?.isIntersecting ?? false),
-      {
-        threshold: 0.18,
-        rootMargin: "120px 0px -120px 0px",
-      }
+      (entries) => {
+        if (entries[0]?.isIntersecting) setInView(true);
+      },
+      { threshold: 0.18, rootMargin: "120px 0px -120px 0px" }
     );
 
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
+  const go = () => nav(cat.to);
+
   return (
     <div
       ref={ref}
+      role="link"
+      tabIndex={0}
+      aria-label={`Shop ${cat.title}`}
+      onClick={go}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          go();
+        }
+      }}
+      className="group block h-full cursor-pointer relative z-10 pointer-events-auto"
       style={{
         transitionProperty: "opacity, transform",
         transitionDuration: inView ? "900ms" : "350ms",
@@ -135,78 +150,82 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
         transitionTimingFunction: inView
           ? "cubic-bezier(0.12, 0.85, 0.2, 1)"
           : "cubic-bezier(0.2, 0, 0.2, 1)",
-        opacity: inView ? 1 : 0,
+        opacity: 1,
         transform: inView
           ? "translateY(0px) scale(1)"
-          : "translateY(-90px) scale(0.985)",
+          : "translateY(-70px) scale(0.99)",
         willChange: "opacity, transform",
       }}
     >
-      <Link to={cat.to} className="group block h-full">
-        <div
-          className="
-            relative flex flex-col h-full overflow-hidden rounded-xl
-            border border-black/10 bg-white
-            shadow-[0_12px_40px_rgba(0,0,0,0.25)]
-            transition-all duration-300 ease-out
-            group-hover:-translate-y-2
-            group-hover:shadow-[0_22px_70px_rgba(0,0,0,0.35)]
-          "
-        >
-          {/* Image */}
-          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/3" }}>
-            <img
-              src={cat.image}
-              alt={cat.title}
-              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-              loading="lazy"
-              draggable={false}
-            />
-          </div>
+      <div
+        className="
+          relative flex flex-col h-full overflow-hidden rounded-xl
+          border border-black/10 bg-white
+          shadow-[0_12px_40px_rgba(0,0,0,0.25)]
+          transition-all duration-300 ease-out
+          sm:group-hover:-translate-y-2
+          sm:group-hover:shadow-[0_22px_70px_rgba(0,0,0,0.35)]
+        "
+      >
+        {/* Image */}
+        <div className="relative w-full overflow-hidden aspect-[16/10] sm:aspect-[4/3]">
+          <img
+            src={cat.image}
+            alt={cat.title}
+            className="h-full w-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105"
+            loading="lazy"
+            draggable={false}
+          />
+        </div>
 
-          {/* Content (white block + gradient text) */}
-          <div className="flex flex-col flex-1 px-6 pt-5 pb-7">
-            <h3
-              className="text-lg font-extrabold tracking-wide leading-tight bg-clip-text text-transparent"
-              style={{ backgroundImage: GRADIENT }}
-            >
-              {cat.title}
-            </h3>
+        {/* Content */}
+        <div className="flex flex-col flex-1 px-3 sm:px-6 pt-3 sm:pt-5 pb-4 sm:pb-7">
+          <h3
+            className="text-sm sm:text-lg font-extrabold tracking-wide leading-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: GRADIENT }}
+          >
+            {cat.title}
+          </h3>
 
-            <div className="mt-3 mb-3 h-px w-full bg-black/10" />
+          <div className="mt-2 sm:mt-3 mb-2 sm:mb-3 h-px w-full bg-black/10" />
 
-            <p className="text-sm text-black/60 leading-relaxed">{cat.subtitle}</p>
+          <p className="text-[11px] sm:text-sm text-black/60 leading-relaxed line-clamp-2">
+            {cat.subtitle}
+          </p>
 
-            <ul className="mt-4 space-y-2 flex-1">
-              {cat.bullets.map((b) => (
-                <li key={b} className="flex items-center gap-2.5 text-sm text-black/75">
-                  <span
-                    className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{ backgroundImage: GRADIENT }}
-                  />
-                  {b}
-                </li>
-              ))}
-            </ul>
-
-            <div
-              className="mt-5 flex items-center gap-1.5 text-sm font-semibold bg-clip-text text-transparent group-hover:opacity-80 transition-opacity"
-              style={{ backgroundImage: GRADIENT }}
-            >
-              <span>Shop now</span>
-              <svg
-                className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
+          {/* Bullets: hidden on mobile */}
+          <ul className="mt-4 space-y-2 flex-1 hidden sm:block">
+            {cat.bullets.map((b) => (
+              <li
+                key={b}
+                className="flex items-center gap-2.5 text-sm text-black/75"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+                <span
+                  className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundImage: GRADIENT }}
+                />
+                {b}
+              </li>
+            ))}
+          </ul>
+
+          <div
+            className="mt-3 sm:mt-5 flex items-center gap-1.5 text-xs sm:text-sm font-semibold bg-clip-text text-transparent group-hover:opacity-80 transition-opacity"
+            style={{ backgroundImage: GRADIENT }}
+          >
+            <span>Shop now</span>
+            <svg
+              className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 }
@@ -214,11 +233,11 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
 // ── Main export ────────────────────────────────────────────────────────────
 export default function FeaturedCategories() {
   return (
-    <section className="relative w-full min-h-screen flex items-center">
-      <div className="w-full px-6 sm:px-10 xl:px-16 py-16 sm:py-20">
+    <section className="relative w-full pointer-events-auto">
+      <div className="w-full px-4 sm:px-10 xl:px-16 py-10 sm:py-20 relative z-10">
         <AnimatedHeading />
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {CATS.map((cat, i) => (
             <AnimatedCard key={cat.title} cat={cat} delay={i * 140} />
           ))}

@@ -122,6 +122,29 @@ function normalizeProductRow(p: any): ShopProduct {
   } as ShopProduct;
 }
 
+// ---------- helpers for cart item shape ----------
+function parseSizeNumber(size: string) {
+  const cleaned = String(size ?? "").trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeChargeableKg(variant: ProductVariant | null) {
+  // MVP courier rules:
+  // - kg stays kg
+  // - liters treated as 1L ~= 1kg
+  if (!variant) return 1;
+
+  const amount = parseSizeNumber(variant.size);
+  const base = amount > 0 ? amount : 1;
+
+  if (variant.unit === "kg") return base;
+  if (variant.unit === "l") return base;
+
+  return 1;
+}
+// -----------------------------------------------
+
 export default function Products() {
   const cart: any = useCart();
 
@@ -293,23 +316,51 @@ export default function Products() {
     setOpen(true);
   };
 
-  // ✅ Same callback signature as GrowKits expects
-  const addToCart = ({ product, qty, variant }: any) => {
+  // ✅ FIXED: build the actual cart item shape your cart/Cart.tsx expects
+  const addToCart = ({
+    product,
+    qty,
+    variant,
+  }: {
+    product: ShopProduct;
+    qty: number;
+    variant: ProductVariant | null;
+  }) => {
+    const q = Math.max(1, Number(qty || 1));
+
+    const price = Number(variant?.price ?? product?.price ?? 0);
+    const safePrice = Number.isFinite(price) ? price : 0;
+
+    const chargeableKg = computeChargeableKg(variant);
+
+    const item = {
+      id: `${product.id}:${variant?.id ?? "base"}`,
+      name: variant ? `${product.name} (${shortVariantLabel(variant)})` : product.name,
+      price: safePrice,
+      qty: q,
+      chargeableKg,
+      // optional extras (won't break Cart.tsx)
+      productId: product.id,
+      variantId: variant?.id ?? null,
+      imageUrl: getBestImage(product),
+    };
+
     const fn =
-      cart?.addToCart ||
       cart?.addItem ||
+      cart?.addToCart ||
       cart?.add ||
       cart?.addProduct ||
-      cart?.actions?.addToCart ||
-      cart?.actions?.addItem;
+      cart?.actions?.addItem ||
+      cart?.actions?.addToCart;
 
     if (typeof fn === "function") {
       try {
-        fn({ product, qty, variant });
+        fn(item);
         return;
       } catch {
+        // some implementations use fn(product, qty, variant)
         try {
-          fn(product, qty, variant);
+          fn(product, q, variant);
           return;
         } catch {
           // fall through
@@ -317,7 +368,7 @@ export default function Products() {
       }
     }
 
-    console.log("ADD TO CART (no cart handler found):", { productId: product?.id, qty, variant });
+    console.log("ADD TO CART (no cart handler found):", item);
   };
 
   const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
@@ -501,7 +552,10 @@ export default function Products() {
         </div>
 
         {errorMsg && (
-          <div className="mt-8 border border-red-500/25 bg-red-500/15 px-4 py-3 text-white/90" style={{ textShadow: subShadow }}>
+          <div
+            className="mt-8 border border-red-500/25 bg-red-500/15 px-4 py-3 text-white/90"
+            style={{ textShadow: subShadow }}
+          >
             <div className="font-extrabold">Supabase error:</div>
             <div className="mt-1">{errorMsg}</div>
             <button

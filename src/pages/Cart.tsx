@@ -1,6 +1,6 @@
 import { useCart } from "../context/cart";
 import { formatZAR } from "../lib/money";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import pageBg from "../assets/new-bg.png";
 
 export default function Cart() {
@@ -9,6 +9,12 @@ export default function Cart() {
 
   const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
   const subShadow = "0 2px 12px rgba(0,0,0,0.55)";
+
+  const onClose = () => {
+    // If there is history, go back. If user landed here directly, fallback to /shop.
+    if (window.history.length > 1) nav(-1);
+    else nav("/shop");
+  };
 
   return (
     <main className="relative min-h-screen text-white">
@@ -41,13 +47,15 @@ export default function Cart() {
             </p>
           </div>
 
-          <Link
-            to="/shop"
+          <button
+            type="button"
+            onClick={onClose}
             className="text-sm text-white/80 hover:text-white"
             style={{ textShadow: subShadow }}
+            aria-label="Close cart"
           >
-            ← Back to shop
-          </Link>
+            ✕ Close
+          </button>
         </div>
 
         {cart.items.length === 0 ? (
