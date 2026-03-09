@@ -31,8 +31,5 @@ dist-ssr
 .env.*
 !.env.example
 
-# Netlify local dev files
-netlify
-
 # Misc locks / local artifacts
 deno.lock
