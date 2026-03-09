@@ -47,13 +47,10 @@ function AppShell() {
     () => [
       homeBg,
       footerBg,
-      // add more if needed
     ],
     []
   );
 
-  // ✅ Controls how soon the loader can show again after leaving and coming back
-  // 30s feels reasonable. Set to 0 if you want it to show every time they return.
   const REAPPEAR_COOLDOWN_MS = 30_000;
 
   useEffect(() => {
@@ -68,18 +65,13 @@ function AppShell() {
 
     const beenAwayLongEnough = now - lastSeen > REAPPEAR_COOLDOWN_MS;
 
-    // Show loader if:
-    // - never loaded in this session, OR
-    // - they were away long enough and came back
     if (!alreadyLoadedThisSession || beenAwayLongEnough) {
       setShowLoader(true);
     }
 
-    // update last seen immediately on mount
     localStorage.setItem(lastSeenKey, String(now));
   }, []);
 
-  // update "last seen" when the tab is hidden/closed
   useEffect(() => {
     const lastSeenKey = "vaalexotics_last_seen";
 
@@ -130,7 +122,11 @@ function AppShell() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
 
-            {/* YOCO return routes */}
+            {/* Checkout / YOCO success routes */}
+            <Route path="/checkout/success" element={<OrderSuccess />} />
+            <Route path="/checkout/cancel" element={<Navigate to="/checkout" replace />} />
+            <Route path="/checkout/failed" element={<Navigate to="/checkout" replace />} />
+
             <Route path="/payment/success" element={<OrderSuccess />} />
             <Route path="/payment/cancel" element={<Navigate to="/checkout" replace />} />
             <Route path="/payment/failed" element={<Navigate to="/checkout" replace />} />
@@ -160,7 +156,7 @@ function AppShell() {
             <Route path="/mushrooms/medicinal-supplements" element={<MedicinalSupplements />} />
             <Route path="/bulk-herbal" element={<BulkHerbal />} />
 
-            {/* ✅ Compatibility routes (old /shop links) */}
+            {/* Compatibility routes (old /shop links) */}
             <Route path="/shop/growkits" element={<Navigate to="/mushrooms/grow-kits" replace />} />
             <Route
               path="/shop/grain-and-cultures"
