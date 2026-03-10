@@ -6,7 +6,6 @@ import { CATEGORY, normCategory } from "../../lib/category";
 
 const CAT = CATEGORY.supplies;
 
-// Brand accents (match GrowKits layout)
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
@@ -61,7 +60,6 @@ function isInStock(p: ShopProduct) {
   const inStockFlag = p.in_stock ?? true;
   const count = Number(p.stock_count ?? 0);
 
-  // if stock_count exists, enforce it; otherwise fall back to in_stock
   if (Number.isFinite(count) && count >= 0) return inStockFlag && count > 0;
   return !!inStockFlag;
 }
@@ -85,16 +83,20 @@ function shortVariantLabel(v: ProductVariant) {
   return `${v.size}${v.unit.toUpperCase()}`;
 }
 
+function shortDesc(desc: string | null | undefined, maxLen = 68) {
+  const t = String(desc ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
+}
+
 export default function CultivationSupplies() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Controlled popup state
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<ShopProduct | null>(null);
   const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
 
-  // ✅ Selected variant per product
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<
     Record<string, string>
   >({});
@@ -103,7 +105,6 @@ export default function CultivationSupplies() {
     const fetchProducts = async () => {
       setLoading(true);
 
-      // ✅ Do NOT filter by in_stock / stock_count (still show "out of stock" items)
       const { data, error } = await supabase
         .from("products")
         .select(
@@ -122,7 +123,6 @@ export default function CultivationSupplies() {
       const list = (data ?? []) as ShopProduct[];
       setProducts(list);
 
-      // seed selected variant to cheapest (if exists)
       const seed: Record<string, string> = {};
       for (const p of list) {
         const vars = normalizeVariants(p);
@@ -156,7 +156,6 @@ export default function CultivationSupplies() {
 
   return (
     <main className="relative min-h-screen text-black">
-      {/* ✅ Background now matches ALL other pages */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -167,26 +166,16 @@ export default function CultivationSupplies() {
         }}
       />
 
-      {/* ✅ Removed the white overlays (they were killing consistency) */}
-
-      {/* Content */}
-      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        <p
-          className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
-          style={{ textShadow: subShadow }}
-        >
-          Mushrooms
-        </p>
-
+      <div className="relative z-10 mx-auto w-full max-w-[2400px] px-4 sm:px-5 lg:px-6 pt-12 sm:pt-14 pb-20">
         <h1
-          className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+          className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white"
           style={{ textShadow: headingShadow }}
         >
           Cultivation Supplies
         </h1>
 
         <p
-          className="mt-3 max-w-2xl text-white/80"
+          className="mt-2 text-white/80 text-xs sm:text-sm"
           style={{ textShadow: subShadow }}
         >
           Bags, tools, substrates, and the stuff that actually matters. Build smarter grows
@@ -194,19 +183,28 @@ export default function CultivationSupplies() {
         </p>
 
         {loading && (
-          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+          <div className="mt-6 text-white" style={{ textShadow: subShadow }}>
             Loading products...
           </div>
         )}
 
         {!loading && filteredProducts.length === 0 && (
-          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+          <div className="mt-6 text-white" style={{ textShadow: subShadow }}>
             No products in this category yet.
           </div>
         )}
 
-        {/* ✅ EXACT grid layout */}
-        <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div
+          className="
+            mt-6
+            grid
+            gap-3
+            [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+          "
+        >
           {filteredProducts.map((p, idx) => {
             const img = getBestImage(p);
             const stockOk = isInStock(p);
@@ -224,136 +222,105 @@ export default function CultivationSupplies() {
               ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
               : Number(p.price ?? 0);
 
+            const desc = shortDesc(p.description);
+
             return (
               <div
                 key={p.id}
-                className={[
-                  "relative overflow-hidden",
-                  "bg-white/90 backdrop-blur",
-                  "border border-black/12",
-                  "shadow-[0_8px_18px_rgba(0,0,0,0.10)]",
-                  "hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)]",
-                  "transition-shadow",
-                  "rounded-none",
-                ].join(" ")}
+                className="
+                  bg-white
+                  border border-gray-200
+                  shadow-sm hover:shadow-md
+                  rounded-xl
+                  overflow-hidden
+                  flex flex-col
+                  h-full
+                  group
+                  transition-shadow
+                "
               >
-                {/* Stock badge */}
-                <div className="absolute right-2 top-2 z-10">
-                  {stockOk ? (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_BLUE }}
-                    >
-                      IN&nbsp;STOCK
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_RED }}
-                    >
-                      OUT&nbsp;OF&nbsp;STOCK
-                    </span>
-                  )}
-                </div>
-
-                {/* Image area */}
                 <button
                   type="button"
                   onClick={() => openPopup(p, idx)}
-                  className="relative block w-full aspect-square bg-black/5 border-b border-black/10"
+                  className="relative block w-full aspect-square bg-[#f7f7f7] border-b border-black/10 p-3"
                   title="Quick view"
                 >
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={p.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center text-[10px] text-black/45">
-                      No image yet
-                    </div>
-                  )}
+                  <div className="w-full h-full rounded-lg bg-white border border-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] flex items-center justify-center overflow-hidden">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="w-[78%] h-[78%] object-contain transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-[10px] text-black/45">
+                        No image yet
+                      </div>
+                    )}
+                  </div>
                 </button>
 
-                {/* Bottom */}
-                <div className="p-2.5">
+                <div className="p-3 flex-1 flex flex-col">
                   <button
                     type="button"
                     onClick={() => openPopup(p, idx)}
                     className="w-full text-left"
                     title="Quick view"
                   >
-                    <h3 className="text-[12px] font-extrabold tracking-tight text-black leading-snug line-clamp-2">
+                    <h3 className="text-[13px] sm:text-[15px] font-extrabold leading-snug line-clamp-2 text-black">
                       {p.name}
                     </h3>
                   </button>
 
-                  {hasVariants && (
-                    <div className="mt-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {variants.map((v) => {
-                          const selected = (selectedVariant?.id ?? variants[0].id) === v.id;
-
-                          return (
-                            <label
-                              key={v.id}
-                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
-                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
-                            >
-                              <input
-                                type="radio"
-                                name={`variant_${p.id}`}
-                                className="sr-only"
-                                checked={selected}
-                                onChange={() =>
-                                  setSelectedVariantByProduct((prev) => ({
-                                    ...prev,
-                                    [p.id]: v.id,
-                                  }))
-                                }
-                              />
-                              <span
-                                className="h-2.5 w-2.5 border border-black/40 grid place-items-center"
-                                style={{ borderRadius: 9999 }}
-                              >
-                                {selected && (
-                                  <span
-                                    className="h-1.5 w-1.5"
-                                    style={{
-                                      borderRadius: 9999,
-                                      backgroundColor: BRAND_RED,
-                                    }}
-                                  />
-                                )}
-                              </span>
-                              <span>{shortVariantLabel(v)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Price */}
-                  <div className="mt-2">
-                    <div className="text-[9px] uppercase tracking-widest text-black/45">
-                      {hasVariants ? "From" : "Price"}
-                    </div>
-                    <div
-                      className="text-[18px] font-extrabold leading-none"
-                      style={{ color: BRAND_RED }}
-                    >
-                      {formatZar(displayPrice)}
-                    </div>
+                  <div className="mt-2 min-h-[34px]">
+                    {desc ? (
+                      <p className="text-[11px] sm:text-xs text-black/55 leading-snug line-clamp-2">
+                        {desc}
+                      </p>
+                    ) : (
+                      <div className="h-[34px]" />
+                    )}
                   </div>
 
-                  {/* Add button */}
-                  <div className="mt-2.5">
+                  <div className="mt-2 min-h-[58px]">
+                    {hasVariants ? (
+                      <div>
+                        <label className="text-[10px] font-semibold text-black/60">
+                          Size
+                        </label>
+                        <select
+                          value={selectedVariant?.id ?? ""}
+                          onChange={(e) =>
+                            setSelectedVariantByProduct((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-xs outline-none"
+                        >
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {shortVariantLabel(v)} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="h-[58px]" />
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-[18px] font-extrabold leading-none text-red-700">
+                    {formatZar(displayPrice)}
+                  </div>
+
+                  <div className="mt-auto pt-3">
                     <button
                       type="button"
                       onClick={() => {
+                        if (!stockOk) return;
+
                         if (hasVariants) {
                           const v = selectedVariant ?? variants[0];
                           return addToCart({ product: p, qty: 1, variant: v });
@@ -362,17 +329,19 @@ export default function CultivationSupplies() {
                       }}
                       disabled={!stockOk}
                       className={[
-                        "w-full inline-flex items-center justify-center px-2 py-2",
-                        "text-[12px] font-extrabold transition",
+                        "w-full py-2 text-[11px] sm:text-xs font-extrabold rounded-md",
                         stockOk
                           ? "text-white"
                           : "bg-black/10 text-black/40 cursor-not-allowed",
-                        "rounded-none",
                       ].join(" ")}
                       style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}
                     >
                       {stockOk ? "Add to cart" : "Out of stock"}
                     </button>
+
+                    <div className="mt-1 text-[10px] text-black/45 text-center leading-snug">
+                      Add items to cart.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -381,7 +350,6 @@ export default function CultivationSupplies() {
         </div>
       </div>
 
-      {/* Popup */}
       {active && (
         <ProductQuickView
           product={active as any}

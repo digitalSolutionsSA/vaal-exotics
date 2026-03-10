@@ -82,6 +82,12 @@ function shortVariantLabel(v: ProductVariant) {
   return `${v.size}${v.unit.toUpperCase()}`;
 }
 
+function shortDesc(desc: string | null | undefined, maxLen = 68) {
+  const t = String(desc ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
+}
+
 export default function GrainCultures() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +122,6 @@ export default function GrainCultures() {
       const list = (data ?? []) as ShopProduct[];
       setProducts(list);
 
-      // seed default variant per product
       const seed: Record<string, string> = {};
       for (const p of list) {
         const vars = normalizeVariants(p);
@@ -151,7 +156,6 @@ export default function GrainCultures() {
 
   return (
     <main className="relative min-h-screen text-black">
-      {/* ✅ Unified Background */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -162,23 +166,16 @@ export default function GrainCultures() {
         }}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        <p
-          className="text-xs font-semibold uppercase tracking-[0.35em] text-white/80"
-          style={{ textShadow: subShadow }}
-        >
-          Mushrooms
-        </p>
-
+      <div className="relative z-10 mx-auto w-full max-w-[2400px] px-4 sm:px-5 lg:px-6 pt-12 sm:pt-14 pb-20">
         <h1
-          className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight text-white"
+          className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white"
           style={{ textShadow: headingShadow }}
         >
           Grain &amp; Cultures
         </h1>
 
         <p
-          className="mt-3 max-w-2xl text-white/80"
+          className="mt-2 text-white/80 text-xs sm:text-sm"
           style={{ textShadow: subShadow }}
         >
           Reliable genetics and spawn to level up your grows. Clean inputs,
@@ -186,18 +183,28 @@ export default function GrainCultures() {
         </p>
 
         {loading && (
-          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+          <div className="mt-6 text-white" style={{ textShadow: subShadow }}>
             Loading products...
           </div>
         )}
 
         {!loading && filteredProducts.length === 0 && (
-          <div className="mt-8 text-white/80" style={{ textShadow: subShadow }}>
+          <div className="mt-6 text-white" style={{ textShadow: subShadow }}>
             No products in this category yet.
           </div>
         )}
 
-        <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div
+          className="
+            mt-6
+            grid
+            gap-3
+            [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+          "
+        >
           {filteredProducts.map((p, idx) => {
             const img = getBestImage(p);
             const stockOk = isInStock(p);
@@ -215,84 +222,100 @@ export default function GrainCultures() {
               ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
               : Number(p.price ?? 0);
 
+            const desc = shortDesc(p.description);
+
             return (
               <div
                 key={p.id}
-                className="relative overflow-hidden bg-white/90 backdrop-blur border border-black/12 shadow-[0_8px_18px_rgba(0,0,0,0.10)] hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition-shadow rounded-none"
+                className="
+                  bg-white
+                  border border-gray-200
+                  shadow-sm hover:shadow-md
+                  rounded-xl
+                  overflow-hidden
+                  flex flex-col
+                  h-full
+                  group
+                  transition-shadow
+                "
               >
-                <div className="absolute right-2 top-2 z-10">
-                  <span
-                    className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                    style={{
-                      backgroundColor: stockOk ? BRAND_BLUE : BRAND_RED,
-                    }}
-                  >
-                    {stockOk ? "IN STOCK" : "OUT OF STOCK"}
-                  </span>
-                </div>
-
                 <button
                   type="button"
                   onClick={() => openPopup(p, idx)}
-                  className="relative block w-full aspect-square bg-black/5 border-b border-black/10"
+                  className="relative block w-full aspect-square bg-[#f7f7f7] border-b border-black/10 p-3"
+                  title="Quick view"
                 >
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={p.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center text-[10px] text-black/45">
-                      No image yet
-                    </div>
-                  )}
+                  <div className="w-full h-full rounded-lg bg-white border border-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] flex items-center justify-center overflow-hidden">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="w-[78%] h-[78%] object-contain transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-[10px] text-black/45">
+                        No image yet
+                      </div>
+                    )}
+                  </div>
                 </button>
 
-                <div className="p-2.5">
-                  <h3 className="text-[12px] font-extrabold tracking-tight text-black line-clamp-2">
-                    {p.name}
-                  </h3>
+                <div className="p-3 flex-1 flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => openPopup(p, idx)}
+                    className="w-full text-left"
+                    title="Quick view"
+                  >
+                    <h3 className="text-[13px] sm:text-[15px] font-extrabold leading-snug line-clamp-2 text-black">
+                      {p.name}
+                    </h3>
+                  </button>
 
-                  {/* ✅ Variant selector (so selectedVariant is real and shortVariantLabel is used) */}
-                  {hasVariants && (
-                    <div className="mt-2">
-                      <div className="text-[9px] uppercase tracking-widest text-black/45">
-                        Size
-                      </div>
-                      <select
-                        value={selectedVariant?.id ?? ""}
-                        onChange={(e) =>
-                          setSelectedVariantByProduct((prev) => ({
-                            ...prev,
-                            [p.id]: e.target.value,
-                          }))
-                        }
-                        className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-[11px] outline-none"
-                      >
-                        {variants.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {shortVariantLabel(v)} · {formatZar(v.price)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="mt-2">
-                    <div className="text-[9px] uppercase tracking-widest text-black/45">
-                      {hasVariants ? "Price" : "Price"}
-                    </div>
-                    <div
-                      className="text-[18px] font-extrabold leading-none"
-                      style={{ color: BRAND_RED }}
-                    >
-                      {formatZar(displayPrice)}
-                    </div>
+                  <div className="mt-2 min-h-[34px]">
+                    {desc ? (
+                      <p className="text-[11px] sm:text-xs text-black/55 leading-snug line-clamp-2">
+                        {desc}
+                      </p>
+                    ) : (
+                      <div className="h-[34px]" />
+                    )}
                   </div>
 
-                  <div className="mt-2.5">
+                  <div className="mt-2 min-h-[58px]">
+                    {hasVariants ? (
+                      <div>
+                        <label className="text-[10px] font-semibold text-black/60">
+                          Size
+                        </label>
+                        <select
+                          value={selectedVariant?.id ?? ""}
+                          onChange={(e) =>
+                            setSelectedVariantByProduct((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-xs outline-none"
+                        >
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {shortVariantLabel(v)} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="h-[58px]" />
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-[18px] font-extrabold leading-none text-red-700">
+                    {formatZar(displayPrice)}
+                  </div>
+
+                  <div className="mt-auto pt-3">
                     <button
                       type="button"
                       disabled={!stockOk}
@@ -304,15 +327,20 @@ export default function GrainCultures() {
                           variant: selectedVariant,
                         })
                       }
-                      className="w-full inline-flex items-center justify-center px-2 py-2 text-[12px] font-extrabold transition rounded-none disabled:opacity-60"
-                      style={
+                      className={[
+                        "w-full py-2 text-[11px] sm:text-xs font-extrabold rounded-md",
                         stockOk
-                          ? { backgroundColor: BRAND_BLUE, color: "white" }
-                          : undefined
-                      }
+                          ? "text-white"
+                          : "bg-black/10 text-black/40 cursor-not-allowed",
+                      ].join(" ")}
+                      style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}
                     >
                       {stockOk ? "Add to cart" : "Out of stock"}
                     </button>
+
+                    <div className="mt-1 text-[10px] text-black/45 text-center leading-snug">
+                      Add items to cart.
+                    </div>
                   </div>
                 </div>
               </div>

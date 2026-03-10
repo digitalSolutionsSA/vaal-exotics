@@ -32,13 +32,9 @@ type ShopProduct = {
   category: string;
   price: number;
   price_cents?: number | null;
-
-  // ✅ allow undefined because other parts of the app may not always select it
   description?: string | null;
-
   in_stock?: boolean | null;
   stock_count?: number | null;
-
   image_url?: string | null;
   images?: any;
   variants?: any;
@@ -105,7 +101,6 @@ function shortVariantLabel(v: ProductVariant) {
 }
 
 function normalizeProductRow(p: any): ShopProduct {
-  // Preserve your old pricing fallbacks (price, price_cents, variants)
   const basePrice = Number(p?.price);
   const hasBase = Number.isFinite(basePrice) && basePrice > 0;
 
@@ -133,9 +128,14 @@ function normalizeProductRow(p: any): ShopProduct {
     ...p,
     variants,
     price,
-    // ✅ ensure description never causes type mismatch surprises
     description: p?.description ?? null,
   } as ShopProduct;
+}
+
+function shortDesc(desc: string | null | undefined, maxLen = 68) {
+  const t = String(desc ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
 }
 
 // ---------- helpers for cart item shape ----------
@@ -146,9 +146,6 @@ function parseSizeNumber(size: string) {
 }
 
 function computeChargeableKg(variant: ProductVariant | null) {
-  // MVP courier rules:
-  // - kg stays kg
-  // - liters treated as 1L ~= 1kg
   if (!variant) return 1;
 
   const amount = parseSizeNumber(variant.size);
@@ -176,16 +173,13 @@ export default function Products() {
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [sort, setSort] = useState<SortOption>("featured");
 
-  // Bulk exclusion (same as your current Products page)
   const BULK_CATEGORY = "Bulk Herbal Products";
   const bulkNorm = normCategory(BULK_CATEGORY);
 
-  // ✅ Controlled popup state (same pattern as BulkHerbal)
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<ShopProduct | null>(null);
   const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
 
-  // ✅ Selected variant per product (same as BulkHerbal)
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<
     Record<string, string>
   >({});
@@ -211,7 +205,6 @@ export default function Products() {
       return;
     }
 
-    // normalize + exclude bulk
     const cleaned = (data ?? [])
       .map(normalizeProductRow)
       .filter((p: any) => {
@@ -221,7 +214,6 @@ export default function Products() {
 
     setProducts(cleaned);
 
-    // seed selected variant to cheapest (if exists)
     const seed: Record<string, string> = {};
     for (const p of cleaned) {
       const vars = normalizeVariants(p);
@@ -237,7 +229,6 @@ export default function Products() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkNorm]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!filtersOpen) return;
@@ -249,7 +240,6 @@ export default function Products() {
     return () => window.removeEventListener("mousedown", onDown);
   }, [filtersOpen]);
 
-  // Close on ESC
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (filtersOpen && e.key === "Escape") setFiltersOpen(false);
@@ -332,7 +322,6 @@ export default function Products() {
     setOpen(true);
   };
 
-  // ✅ FIXED: accept optional variant to satisfy ProductQuickView typing
   const addToCart = ({
     product,
     qty,
@@ -356,7 +345,6 @@ export default function Products() {
       price: safePrice,
       qty: q,
       chargeableKg,
-      // optional extras (won't break Cart.tsx)
       productId: product.id,
       variantId: v?.id ?? null,
       imageUrl: getBestImage(product),
@@ -375,12 +363,11 @@ export default function Products() {
         fn(item);
         return;
       } catch {
-        // some implementations use fn(product, qty, variant)
         try {
           fn(product, q, v);
           return;
         } catch {
-          // fall through
+          // ignore
         }
       }
     }
@@ -393,7 +380,6 @@ export default function Products() {
 
   return (
     <main className="relative min-h-screen text-black">
-      {/* ✅ Background EXACTLY like BulkHerbal */}
       <div
         className="fixed inset-0 z-0"
         style={{
@@ -404,9 +390,7 @@ export default function Products() {
         }}
       />
 
-      {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-[1800px] px-6 sm:px-10 xl:px-16 pt-16 pb-20">
-        {/* Headings styled like BulkHerbal */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p
@@ -434,7 +418,6 @@ export default function Products() {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="relative flex flex-wrap items-center gap-2" ref={dropdownRef}>
             <button
               onClick={() => setFiltersOpen((v) => !v)}
@@ -597,8 +580,17 @@ export default function Products() {
           </div>
         )}
 
-        {/* ✅ EXACT grid + blocks like BulkHerbal */}
-        <div className="mt-7 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div
+          className="
+            mt-6
+            grid
+            gap-3
+            [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+          "
+        >
           {filteredProducts.map((p, idx) => {
             const img = getBestImage(p);
             const stockOk = isInStock(p);
@@ -616,138 +608,105 @@ export default function Products() {
               ? selectedVariant?.price ?? variants[0]?.price ?? Number(p.price ?? 0)
               : Number(p.price ?? 0);
 
+            const desc = shortDesc(p.description);
+
             return (
               <div
                 key={p.id}
-                className={[
-                  "relative overflow-hidden",
-                  "bg-white/90 backdrop-blur",
-                  "border border-black/12",
-                  "shadow-[0_8px_18px_rgba(0,0,0,0.10)]",
-                  "hover:shadow-[0_12px_26px_rgba(0,0,0,0.14)]",
-                  "transition-shadow",
-                  "rounded-none",
-                ].join(" ")}
+                className="
+                  bg-white
+                  border border-gray-200
+                  shadow-sm hover:shadow-md
+                  rounded-xl
+                  overflow-hidden
+                  flex flex-col
+                  h-full
+                  group
+                  transition-shadow
+                "
               >
-                {/* Stock badge */}
-                <div className="absolute right-2 top-2 z-10">
-                  {stockOk ? (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_BLUE }}
-                    >
-                      IN&nbsp;STOCK
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-flex items-center justify-center px-2 py-1 text-[9px] font-extrabold tracking-widest text-white shadow-sm"
-                      style={{ backgroundColor: BRAND_RED }}
-                    >
-                      OUT&nbsp;OF&nbsp;STOCK
-                    </span>
-                  )}
-                </div>
-
-                {/* Image area */}
                 <button
                   type="button"
                   onClick={() => openPopup(p, idx)}
-                  className="relative block w-full aspect-square bg-black/5 border-b border-black/10"
+                  className="relative block w-full aspect-square bg-[#f7f7f7] border-b border-black/10 p-3"
                   title="Quick view"
                 >
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={p.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center text-[10px] text-black/45">
-                      No image yet
-                    </div>
-                  )}
+                  <div className="w-full h-full rounded-lg bg-white border border-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] flex items-center justify-center overflow-hidden">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="w-[78%] h-[78%] object-contain transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-[10px] text-black/45">
+                        No image yet
+                      </div>
+                    )}
+                  </div>
                 </button>
 
-                {/* Bottom */}
-                <div className="p-2.5">
+                <div className="p-3 flex-1 flex flex-col">
                   <button
                     type="button"
                     onClick={() => openPopup(p, idx)}
                     className="w-full text-left"
                     title="Quick view"
                   >
-                    <h3 className="text-[12px] font-extrabold tracking-tight text-black leading-snug line-clamp-2">
+                    <h3 className="text-[13px] sm:text-[15px] font-extrabold leading-snug line-clamp-2 text-black">
                       {p.name}
                     </h3>
                   </button>
 
-                  {/* Variants (radio row) only if exist */}
-                  {hasVariants && (
-                    <div className="mt-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {variants.map((v) => {
-                          const selected =
-                            (selectedVariant?.id ?? variants[0].id) === v.id;
-
-                          return (
-                            <label
-                              key={v.id}
-                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-black/70 cursor-pointer select-none"
-                              title={`${shortVariantLabel(v)} · ${formatZar(v.price)}`}
-                            >
-                              <input
-                                type="radio"
-                                name={`variant_${p.id}`}
-                                className="sr-only"
-                                checked={selected}
-                                onChange={() =>
-                                  setSelectedVariantByProduct((prev) => ({
-                                    ...prev,
-                                    [p.id]: v.id,
-                                  }))
-                                }
-                              />
-                              <span
-                                className="h-2.5 w-2.5 border border-black/40 grid place-items-center"
-                                style={{ borderRadius: 9999 }}
-                              >
-                                {selected && (
-                                  <span
-                                    className="h-1.5 w-1.5"
-                                    style={{
-                                      borderRadius: 9999,
-                                      backgroundColor: BRAND_RED,
-                                    }}
-                                  />
-                                )}
-                              </span>
-                              <span>{shortVariantLabel(v)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Price (red) */}
-                  <div className="mt-2">
-                    <div className="text-[9px] uppercase tracking-widest text-black/45">
-                      {hasVariants ? "From" : "Price"}
-                    </div>
-                    <div
-                      className="text-[18px] font-extrabold leading-none"
-                      style={{ color: BRAND_RED }}
-                    >
-                      {formatZar(displayPrice)}
-                    </div>
+                  <div className="mt-2 min-h-[34px]">
+                    {desc ? (
+                      <p className="text-[11px] sm:text-xs text-black/55 leading-snug line-clamp-2">
+                        {desc}
+                      </p>
+                    ) : (
+                      <div className="h-[34px]" />
+                    )}
                   </div>
 
-                  {/* Button */}
-                  <div className="mt-2.5">
+                  <div className="mt-2 min-h-[58px]">
+                    {hasVariants ? (
+                      <div>
+                        <label className="text-[10px] font-semibold text-black/60">
+                          Size
+                        </label>
+                        <select
+                          value={selectedVariant?.id ?? ""}
+                          onChange={(e) =>
+                            setSelectedVariantByProduct((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-black/15 bg-white px-2 py-2 text-xs outline-none"
+                        >
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {shortVariantLabel(v)} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="h-[58px]" />
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-[18px] font-extrabold leading-none text-red-700">
+                    {formatZar(displayPrice)}
+                  </div>
+
+                  <div className="mt-auto pt-3">
                     <button
                       type="button"
                       onClick={() => {
+                        if (!stockOk) return;
+
                         if (hasVariants) {
                           const v = selectedVariant ?? variants[0];
                           return addToCart({ product: p, qty: 1, variant: v });
@@ -756,17 +715,19 @@ export default function Products() {
                       }}
                       disabled={!stockOk}
                       className={[
-                        "w-full inline-flex items-center justify-center px-2 py-2",
-                        "text-[12px] font-extrabold transition",
+                        "w-full py-2 text-[11px] sm:text-xs font-extrabold rounded-md",
                         stockOk
                           ? "text-white"
                           : "bg-black/10 text-black/40 cursor-not-allowed",
-                        "rounded-none",
                       ].join(" ")}
                       style={stockOk ? { backgroundColor: BRAND_BLUE } : undefined}
                     >
                       {stockOk ? "Add to cart" : "Out of stock"}
                     </button>
+
+                    <div className="mt-1 text-[10px] text-black/45 text-center leading-snug">
+                      Add items to cart.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -775,7 +736,6 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Popup */}
       {active && (
         <ProductQuickView
           product={active as any}

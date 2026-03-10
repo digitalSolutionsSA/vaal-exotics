@@ -94,7 +94,7 @@ export default function Hero() {
             "
             style={{
               fontFamily: "Oswald, sans-serif",
-              fontWeight: 600,
+              fontWeight: 200,
               letterSpacing: "0.02em",
               transition:
                 "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",
@@ -113,7 +113,7 @@ export default function Hero() {
             "
             style={{
               fontFamily: "Oswald, sans-serif",
-              fontWeight: 600,
+              fontWeight: 200,
               letterSpacing: "0.02em",
               transition:
                 "transform 0.05s linear, opacity 0.05s linear, filter 0.05s linear",

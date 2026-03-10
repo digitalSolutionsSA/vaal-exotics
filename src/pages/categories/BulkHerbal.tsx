@@ -261,17 +261,17 @@ export default function BulkHerbal() {
 
         {/* Responsive “pack as many cards as possible” grid */}
         <div
-          className="
-            mt-6
-            grid
-            gap-2 sm:gap-3 lg:gap-3
-            [grid-template-columns:repeat(auto-fill,minmax(165px,1fr))]
-            sm:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
-            md:[grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]
-            lg:[grid-template-columns:repeat(auto-fill,minmax(230px,1fr))]
-            xl:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]
-          "
-        >
+  className="
+    mt-6
+    grid
+    gap-2 sm:gap-3 lg:gap-3
+    [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]
+    sm:[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
+    md:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
+    lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+    xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+  "
+>
           {filteredProducts.map((p) => {
             const img = getBestImage(p);
             const variants = normalizeVariants(p);

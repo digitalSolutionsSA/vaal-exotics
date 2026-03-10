@@ -193,7 +193,7 @@ function AppShell() {
 
       <div className="fixed z-[9999]">
         <WhatsAppFloatingButton
-          phoneNumber="27639034514"
+          phoneNumber="27782166865"
           message="Hi Vaal Exotics 👋 I'm interested in your products. Can you assist me?"
         />
       </div>

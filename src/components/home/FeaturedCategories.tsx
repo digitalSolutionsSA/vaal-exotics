@@ -28,14 +28,14 @@ const CATS: Cat[] = [
     subtitle: "Reliable genetics and spawn to level up your grows.",
     bullets: ["Quality cultures", "Clean grain options", "Consistent results"],
     to: "/shop/grain-and-cultures",
-    image: grainImg,
+    image: suppliesImg,
   },
   {
     title: "Cultivation Supplies",
     subtitle: "Bags, tools, substrates, and the stuff that actually matters.",
     bullets: ["Grow-ready supplies", "Stock up easily", "Better yields"],
     to: "/shop/cultivation-supplies",
-    image: suppliesImg,
+    image: grainImg,
   },
   {
     title: "Medicinal Supplements",
