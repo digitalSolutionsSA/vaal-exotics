@@ -6,7 +6,7 @@ import { CATEGORY, normCategory } from "../../lib/category";
 
 const CAT = CATEGORY.supplies;
 
-const BRAND_RED = "#C43A2F";
+//const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
 type VariantUnit = "kg" | "l";
