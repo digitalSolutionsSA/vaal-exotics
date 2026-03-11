@@ -65,9 +65,15 @@ function safeArray<T = any>(maybeArray: any): T[] {
   return [];
 }
 
+function getImages(p: ShopProduct) {
+  const imgs = safeArray<string>(p.images).filter(Boolean);
+  if (imgs.length) return imgs;
+  return p.image_url ? [p.image_url] : [];
+}
+
 function getBestImage(p: ShopProduct) {
-  const imgs = safeArray<string>(p.images);
-  return imgs?.[0] || p.image_url || "";
+  const imgs = getImages(p);
+  return imgs?.[0] || "";
 }
 
 function normalizeVariants(p: ShopProduct): ProductVariant[] {
@@ -119,6 +125,9 @@ export default function BulkHerbal() {
 
   const [enquiryCart, setEnquiryCart] = useState<EnquiryCartItem[]>([]);
 
+  const [quickViewProduct, setQuickViewProduct] = useState<ShopProduct | null>(null);
+  const [quickViewImage, setQuickViewImage] = useState(0);
+
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -139,7 +148,6 @@ export default function BulkHerbal() {
       const list = (data ?? []) as ShopProduct[];
       setProducts(list);
 
-      // seed default variant per product
       const seed: Record<string, string> = {};
       for (const p of list) {
         const vars = normalizeVariants(p);
@@ -153,10 +161,37 @@ export default function BulkHerbal() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    if (!quickViewProduct) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [quickViewProduct]);
+
   const filteredProducts = useMemo(() => {
     const want = normCategory(CAT);
     return products.filter((p) => normCategory(p?.category) === want);
   }, [products]);
+
+  const openQuickView = (p: ShopProduct) => {
+    setQuickViewProduct(p);
+    setQuickViewImage(0);
+
+    const vars = normalizeVariants(p);
+    if (vars.length && !selectedVariantByProduct[p.id]) {
+      setSelectedVariantByProduct((prev) => ({
+        ...prev,
+        [p.id]: vars[0].id,
+      }));
+    }
+  };
+
+  const closeQuickView = () => {
+    setQuickViewProduct(null);
+    setQuickViewImage(0);
+  };
 
   const addToEnquiry = (p: ShopProduct) => {
     const variants = normalizeVariants(p);
@@ -231,6 +266,19 @@ export default function BulkHerbal() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const quickViewVariants = quickViewProduct ? normalizeVariants(quickViewProduct) : [];
+  const quickViewSelectedId = quickViewProduct
+    ? selectedVariantByProduct[quickViewProduct.id]
+    : "";
+  const quickViewSelectedVariant =
+    quickViewProduct && quickViewVariants.length
+      ? quickViewVariants.find((v) => v.id === quickViewSelectedId) ?? quickViewVariants[0]
+      : null;
+  const quickViewPrice = quickViewProduct
+    ? quickViewSelectedVariant?.price ?? Number(quickViewProduct.price ?? 0)
+    : 0;
+  const quickViewImages = quickViewProduct ? getImages(quickViewProduct) : [];
+
   return (
     <main className="relative min-h-screen text-black">
       {/* Background */}
@@ -259,19 +307,18 @@ export default function BulkHerbal() {
 
         {loading && <div className="mt-6 text-white">Loading products...</div>}
 
-        {/* Responsive “pack as many cards as possible” grid */}
         <div
-  className="
-    mt-6
-    grid
-    gap-2 sm:gap-3 lg:gap-3
-    [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]
-    sm:[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
-    md:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
-    lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
-    xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
-  "
->
+          className="
+            mt-6
+            grid
+            gap-2 sm:gap-3 lg:gap-3
+            [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
+            md:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+          "
+        >
           {filteredProducts.map((p) => {
             const img = getBestImage(p);
             const variants = normalizeVariants(p);
@@ -297,19 +344,25 @@ export default function BulkHerbal() {
                   h-full
                 "
               >
-                {/* Shorter image to fit more products in view */}
-                <div className="aspect-[4/3] bg-black/5 border-b border-black/10">
-                  {img && (
+                <button
+                  type="button"
+                  onClick={() => openQuickView(p)}
+                  className="aspect-[4/3] bg-black/5 border-b border-black/10 block text-left"
+                >
+                  {img ? (
                     <img
                       src={img}
                       alt={p.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-black/40">
+                      No image
+                    </div>
                   )}
-                </div>
+                </button>
 
-                {/* Structured content: fixed “slots” so everything aligns */}
                 <div
                   className="
                     p-2.5 sm:p-3
@@ -319,12 +372,14 @@ export default function BulkHerbal() {
                     gap-2
                   "
                 >
-                  {/* Title */}
-                  <h3 className="text-[12px] sm:text-sm font-extrabold leading-snug line-clamp-2">
+                  <button
+                    type="button"
+                    onClick={() => openQuickView(p)}
+                    className="text-left text-[12px] sm:text-sm font-extrabold leading-snug line-clamp-2 hover:opacity-80"
+                  >
                     {p.name}
-                  </h3>
+                  </button>
 
-                  {/* Description slot (always reserves space) */}
                   <div className="min-h-[32px]">
                     {desc ? (
                       <p className="text-[11px] sm:text-xs text-black/60 leading-snug line-clamp-2">
@@ -335,7 +390,6 @@ export default function BulkHerbal() {
                     )}
                   </div>
 
-                  {/* Variant slot (always reserves space) */}
                   <div className="min-h-[56px]">
                     {variants.length > 0 ? (
                       <div>
@@ -364,16 +418,13 @@ export default function BulkHerbal() {
                     )}
                   </div>
 
-                  {/* Price slot */}
                   <div className="text-base sm:text-lg font-extrabold text-red-700">
                     {formatZar(displayPrice)}
                   </div>
 
-                  {/* Spacer row */}
                   <div />
 
-                  {/* Actions pinned consistently */}
-                  <div className="pt-1">
+                  <div className="pt-1 space-y-1.5">
                     <button
                       onClick={() => addToEnquiry(p)}
                       className="w-full py-2 text-[11px] sm:text-xs font-extrabold text-white rounded-md"
@@ -382,7 +433,15 @@ export default function BulkHerbal() {
                       Add to enquiry
                     </button>
 
-                    <div className="mt-1 text-[10px] text-black/45 text-center leading-snug">
+                    <button
+                      type="button"
+                      onClick={() => openQuickView(p)}
+                      className="w-full py-2 text-[11px] sm:text-xs font-extrabold rounded-md border border-black/10 bg-white text-black"
+                    >
+                      Quick view
+                    </button>
+
+                    <div className="text-[10px] text-black/45 text-center leading-snug">
                       Add items then send via WhatsApp.
                     </div>
                   </div>
@@ -425,7 +484,6 @@ export default function BulkHerbal() {
               </div>
             </div>
 
-            {/* Tiny removable list */}
             {enquiryCart.length > 0 && (
               <div className="mt-2 max-h-28 overflow-auto">
                 <div className="space-y-1">
@@ -457,6 +515,138 @@ export default function BulkHerbal() {
           </div>
         </div>
       </div>
+
+      {/* Quick View Modal */}
+      {quickViewProduct && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] p-3 sm:p-4"
+          onClick={closeQuickView}
+        >
+          <div
+            className="mx-auto flex h-full w-full max-w-5xl items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative w-full max-h-[92vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <button
+                type="button"
+                onClick={closeQuickView}
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-black shadow border border-black/10"
+                aria-label="Close quick view"
+              >
+                ×
+              </button>
+
+              <div className="grid max-h-[92vh] grid-cols-1 md:grid-cols-[1.05fr_0.95fr]">
+                <div className="border-b md:border-b-0 md:border-r border-black/10 bg-[#f7f7f7]">
+                  <div className="aspect-square w-full bg-white">
+                    {quickViewImages[quickViewImage] ? (
+                      <img
+                        src={quickViewImages[quickViewImage]}
+                        alt={quickViewProduct.name}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm text-black/40">
+                        No image available
+                      </div>
+                    )}
+                  </div>
+
+                  {quickViewImages.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto border-t border-black/10 bg-white p-3">
+                      {quickViewImages.map((image, index) => (
+                        <button
+                          key={`${image}-${index}`}
+                          type="button"
+                          onClick={() => setQuickViewImage(index)}
+                          className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border ${
+                            quickViewImage === index
+                              ? "border-black"
+                              : "border-black/10"
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={`${quickViewProduct.name} ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="max-h-[92vh] overflow-y-auto p-4 sm:p-5 md:p-6">
+                  <div className="pr-10">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-black leading-tight">
+                      {quickViewProduct.name}
+                    </h2>
+
+                    <div className="mt-3 text-2xl sm:text-3xl font-extrabold text-red-700">
+                      {formatZar(quickViewPrice)}
+                    </div>
+
+                    {quickViewProduct.description && (
+                      <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.03] p-3">
+                        <p className="text-sm sm:text-[15px] leading-6 text-black/75 whitespace-pre-wrap">
+                          {quickViewProduct.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {quickViewVariants.length > 0 && (
+                      <div className="mt-4">
+                        <label className="block text-xs font-bold uppercase tracking-wide text-black/55 mb-2">
+                          Size
+                        </label>
+                        <select
+                          value={quickViewSelectedVariant?.id ?? ""}
+                          onChange={(e) =>
+                            setSelectedVariantByProduct((prev) => ({
+                              ...prev,
+                              [quickViewProduct.id]: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-black/15 bg-white px-3 py-3 text-sm outline-none"
+                        >
+                          {quickViewVariants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {shortVariantLabel(v)} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => addToEnquiry(quickViewProduct)}
+                        className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-extrabold text-white"
+                        style={{ backgroundColor: BRAND_BLUE }}
+                      >
+                        Add to enquiry
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={closeQuickView}
+                        className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-extrabold text-black"
+                      >
+                        Continue browsing
+                      </button>
+                    </div>
+
+                    <p className="mt-3 text-xs text-black/50">
+                      Add items to your enquiry cart, then send the full list via WhatsApp.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

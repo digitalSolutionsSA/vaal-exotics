@@ -118,9 +118,8 @@ function toInStock(stockCount: number) {
 }
 
 export default function AdminProducts() {
-  // ── UI tokens (white cards) ────────────────────────────────────────────────
-  const CARD = "rounded-2xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
-  // const CARD_SOFT = "rounded-2xl border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.08)]";
+  const CARD =
+    "rounded-2xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
   const SUBPANEL = "rounded-2xl border border-black/10 bg-neutral-50 p-4";
   const INPUT =
     "w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30";
@@ -139,7 +138,6 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
 
-  // Add form
   const [name, setName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [price, setPrice] = useState<string>("");
@@ -147,24 +145,19 @@ export default function AdminProducts() {
   const [stockCount, setStockCount] = useState<string>("0");
   const [formError, setFormError] = useState<string>("");
 
-  // Variants (Add form)
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [vUnit, setVUnit] = useState<VariantUnit>("l");
   const [vSize, setVSize] = useState("");
   const [vPrice, setVPrice] = useState("");
 
-  // Images (Add form)
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const addImagesInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Filters
   const [q, setQ] = useState("");
   const [brandFilter, setBrandFilter] = useState<string>("All");
 
-  // Busy
   const [busy, setBusy] = useState(false);
 
-  // FAQs
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [faqQ, setFaqQ] = useState("");
   const [faqA, setFaqA] = useState("");
@@ -172,11 +165,9 @@ export default function AdminProducts() {
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [faqBusy, setFaqBusy] = useState(false);
 
-  // Modal
   const [openProductId, setOpenProductId] = useState<string | null>(null);
   const modalFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Modal drafts
   const [mName, setMName] = useState("");
   const [mCategory, setMCategory] = useState(CATEGORIES[0]);
   const [mPrice, setMPrice] = useState<string>("");
@@ -193,7 +184,6 @@ export default function AdminProducts() {
     return (products as any[]).find((p) => p.id === openProductId) ?? null;
   }, [products, openProductId]);
 
-  // ✅ Fetch products
   const fetchProducts = async () => {
     setLoading(true);
     setError("");
@@ -229,7 +219,6 @@ export default function AdminProducts() {
     fetchFaqs();
   }, []);
 
-  // When modal opens, load drafts from selected product
   useEffect(() => {
     if (!openProduct) return;
     setMError("");
@@ -240,8 +229,7 @@ export default function AdminProducts() {
     setMStock(String(Number(openProduct.stock_count ?? 0)));
     setMVariants(normalizeVariants(openProduct.variants));
     setMImages(Array.isArray(openProduct.images) ? openProduct.images : []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openProductId]);
+  }, [openProductId, openProduct]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -253,7 +241,7 @@ export default function AdminProducts() {
       }
 
       if (query) {
-        const hay = `${p.name ?? ""} ${p.category ?? ""}`.toLowerCase();
+        const hay = `${p.name ?? ""} ${p.category ?? ""} ${p.description ?? ""}`.toLowerCase();
         if (!hay.includes(query)) return false;
       }
 
@@ -289,7 +277,6 @@ export default function AdminProducts() {
 
   const removeVariant = (id: string) => setVariants((prev) => prev.filter((v) => v.id !== id));
 
-  // ✅ Supabase helpers
   const addProduct = async (payload: any) => {
     const { data, error } = await supabase.from("products").insert(payload).select("*");
     if (error) throw error;
@@ -367,7 +354,6 @@ export default function AdminProducts() {
         variants: normalizedVariants,
       });
 
-      // Upload images (optional)
       try {
         const urls = newFiles.length ? await uploadImages(created.id, newFiles) : [];
         if (urls.length) await updateProduct(created.id, { images: urls });
@@ -397,7 +383,6 @@ export default function AdminProducts() {
     }
   };
 
-  // ✅ Modal image actions
   const triggerModalFilePicker = () => modalFileInputRef.current?.click();
 
   const onModalPickImages = async (productId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -433,7 +418,6 @@ export default function AdminProducts() {
     }
   };
 
-  // ✅ Modal variants actions
   const addModalVariant = () => {
     setMVariants((prev) => [...prev, { id: uid(), unit: "l", size: "", price: 0 }]);
   };
@@ -509,7 +493,6 @@ export default function AdminProducts() {
     }
   };
 
-  // FAQ helpers
   const resetFaqForm = () => {
     setFaqQ("");
     setFaqA("");
@@ -599,18 +582,24 @@ export default function AdminProducts() {
         </div>
 
         <div className={`${CARD} lg:col-span-2`}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search products..."
-              className={`${INPUT} sm:col-span-2`}
-            />
-            <div className="rounded-xl border border-black/10 bg-neutral-50 px-3 py-2.5 text-sm text-black/60">
-              Filter is in the Product list below
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3">
+              <div className="text-sm font-semibold text-black/80">Admin products</div>
+              <div className="mt-1 text-xs text-black/60">
+                Add, edit and filter products below without the whole page doing gymnastics.
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3">
+              <div className="text-sm font-semibold text-black/80">Current filter</div>
+              <div className="mt-1 text-xs text-black/60">
+                Search and category filter now live inside the Product list card.
+              </div>
             </div>
           </div>
-          <div className={`mt-2 ${HELP}`}>Search here. Category filter is attached to the Product list.</div>
+          <div className={`mt-2 ${HELP}`}>
+            The list below now handles its own filtering and scrolling like it should have in the first place.
+          </div>
         </div>
       </div>
 
@@ -670,7 +659,6 @@ export default function AdminProducts() {
             className={TEXTAREA}
           />
 
-          {/* Images */}
           <div className={SUBPANEL}>
             <div className="text-sm font-semibold text-black/70">Images (max {MAX_IMAGES_PER_PRODUCT})</div>
             <input
@@ -686,7 +674,7 @@ export default function AdminProducts() {
                 {newFiles.map((f, idx) => (
                   <div
                     key={`${f.name}_${idx}`}
-                    className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-black/10"
+                    className="flex items-center justify-between rounded-xl border border-black/10 bg-white px-3 py-2"
                   >
                     <div className="truncate text-xs text-black/80">{f.name}</div>
                     <button type="button" onClick={() => removeNewFile(idx)} className={BTN_SOFT}>
@@ -698,7 +686,6 @@ export default function AdminProducts() {
             )}
           </div>
 
-          {/* Variants */}
           <div className={SUBPANEL}>
             <div className="text-sm font-semibold text-black/70">Variants (optional)</div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -728,7 +715,7 @@ export default function AdminProducts() {
                 {variants.map((v) => (
                   <div
                     key={v.id}
-                    className="flex items-center justify-between rounded-xl bg-white px-3 py-2 border border-black/10"
+                    className="flex items-center justify-between rounded-xl border border-black/10 bg-white px-3 py-2"
                   >
                     <div className="text-xs text-black/80">
                       {v.size}
@@ -754,7 +741,9 @@ export default function AdminProducts() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className={TITLE}>Product list</div>
-            <div className="mt-1 text-xs text-black/60">Filter by category here. Click a product to edit it in the popup.</div>
+            <div className="mt-1 text-xs text-black/60">
+              Filter by category here. Search inside this block. Click a product to edit it in the popup.
+            </div>
           </div>
 
           <div className="text-sm text-black/60 sm:pt-1">
@@ -763,62 +752,75 @@ export default function AdminProducts() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-black/10 bg-neutral-50 p-3">
-          <div className="flex flex-wrap gap-2">
-            {["All", ...CATEGORIES].map((c) => {
-              const active = c === brandFilter;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setBrandFilter(c)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                    active ? "bg-[#C43A2F] text-white" : "border border-black/15 bg-white text-black/80 hover:bg-neutral-50"
-                  }`}
-                >
-                  {c}
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search product name, category or description..."
+              className={INPUT}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              {["All", ...CATEGORIES].map((c) => {
+                const active = c === brandFilter;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setBrandFilter(c)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "bg-[#C43A2F] text-white"
+                        : "border border-black/15 bg-white text-black/80 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2">
-          {filtered.map((p: any) => {
-            const inStock = isInStock(p);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setOpenProductId(p.id)}
-                className="w-full text-left rounded-2xl border border-black/10 bg-white px-4 py-3 transition hover:bg-neutral-50"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-extrabold text-black">{p.name}</div>
-                    <div className="mt-1 truncate text-xs text-black/60">{p.category}</div>
+        <div className="mt-4 h-[520px] overflow-y-auto pr-1">
+          <div className="grid gap-2">
+            {filtered.map((p: any) => {
+              const inStock = isInStock(p);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setOpenProductId(p.id)}
+                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-left transition hover:bg-neutral-50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-extrabold text-black">{p.name}</div>
+                      <div className="mt-1 truncate text-xs text-black/60">{p.category}</div>
+                    </div>
+
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        inStock ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
+                      }`}
+                    >
+                      {inStock ? "In stock" : "No stock"}
+                    </span>
                   </div>
+                </button>
+              );
+            })}
 
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
-                      inStock ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
-                    }`}
-                  >
-                    {inStock ? "In stock" : "No stock"}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <div className="rounded-2xl border border-black/10 bg-neutral-50 p-10 text-center text-black/60">
-              No products found.
-            </div>
-          )}
+            {filtered.length === 0 && (
+              <div className="rounded-2xl border border-black/10 bg-neutral-50 p-10 text-center text-black/60">
+                No products found.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ✅ EDIT MODAL */}
+      {/* Edit modal */}
       {openProductId && openProduct && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -826,7 +828,7 @@ export default function AdminProducts() {
             if (e.target === e.currentTarget) setOpenProductId(null);
           }}
         >
-          <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-white p-5 shadow-2xl text-black">
+          <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-white p-5 text-black shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-extrabold text-black">Edit product</div>
@@ -873,7 +875,6 @@ export default function AdminProducts() {
                 className="w-full min-h-[110px] rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
               />
 
-              {/* Modal Images */}
               <div className={SUBPANEL}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-black/70">Images</div>
@@ -882,7 +883,7 @@ export default function AdminProducts() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {mImages.map((url, idx) => (
-                    <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 border border-black/10">
+                    <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2">
                       <div className="max-w-[220px] truncate text-xs text-black/80">{url}</div>
                       <button type="button" onClick={() => removeModalImage(openProductId, idx)} className={BTN_SOFT}>
                         Remove
@@ -912,7 +913,6 @@ export default function AdminProducts() {
                 </div>
               </div>
 
-              {/* Modal Variants */}
               <div className={SUBPANEL}>
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-black/70">Variants</div>
@@ -923,7 +923,7 @@ export default function AdminProducts() {
 
                 <div className="mt-3 grid gap-2">
                   {mVariants.map((v) => (
-                    <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl bg-white p-3 border border-black/10 sm:grid-cols-5">
+                    <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 bg-white p-3 sm:grid-cols-5">
                       <select
                         value={v.unit}
                         onChange={(e) => setModalVariant(v.id, { unit: e.target.value as VariantUnit })}
@@ -1028,7 +1028,7 @@ export default function AdminProducts() {
                   </span>
                 </div>
 
-                <div className="mt-2 text-sm text-black/70 whitespace-pre-wrap">{f.answer}</div>
+                <div className="mt-2 whitespace-pre-wrap text-sm text-black/70">{f.answer}</div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={() => editFaq(f.id)} className={BTN_SOFT}>

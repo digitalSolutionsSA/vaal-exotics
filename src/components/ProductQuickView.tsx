@@ -15,20 +15,16 @@ export type ShopProduct = {
   category: string;
   price: number;
   description?: string | null;
-
   in_stock?: boolean | null;
   stock_count?: number | null;
-
   image_url?: string | null;
-  images?: any; // jsonb array (or sometimes stringified JSON)
-  variants?: any; // jsonb array
-
+  images?: any;
+  variants?: any;
   created_at?: string;
 };
 
 const BULK_CATEGORY = "Bulk Herbal Products";
 
-// Brand accents (logo-ish)
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
@@ -43,7 +39,7 @@ function toWaDigits(n: string) {
 
 function formatZar(value: any) {
   const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  return Number.isFinite(n) ? `R${n.toFixed(2)}` : "R0.00";
 }
 
 function normalizeVariants(v: any): ProductVariant[] {
@@ -68,7 +64,7 @@ function coerceImages(raw: any): string[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) arr = parsed;
     } catch {
-      // ignore
+      //
     }
   }
   return arr.map((x) => String(x ?? "").trim()).filter((x) => x.length > 0);
@@ -91,16 +87,14 @@ function minVariantPrice(list: ProductVariant[]) {
 
 type Props = {
   product: ShopProduct;
-  onAddToCart?: (args: { product: ShopProduct; qty: number; variant?: ProductVariant | null }) => void;
-
-  // ✅ controlled modal support
+  onAddToCart?: (args: {
+    product: ShopProduct;
+    qty: number;
+    variant?: ProductVariant | null;
+  }) => void;
   open?: boolean;
   onOpenChange?: (next: boolean) => void;
-
-  // ✅ if true, we don't render the card at all (modal-only)
   hideCard?: boolean;
-
-  // ✅ optional accent colour
   accent?: "red" | "blue";
 };
 
@@ -115,12 +109,11 @@ export default function ProductQuickView({
   const images = useMemo(() => getImages(product), [product]);
   const variants = useMemo(() => normalizeVariants(product.variants), [product]);
 
-  // internal state fallback if not controlled
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open ?? internalOpen;
 
   const setOpen = (next: boolean) => {
-    if (onOpenChange) onOpenChange(next);
+    onOpenChange?.(next);
     if (open === undefined) setInternalOpen(next);
   };
 
@@ -136,47 +129,59 @@ export default function ProductQuickView({
   }, [product.stock_count]);
 
   const isInStock = useMemo(() => {
-    // “reality” model: only true + stock_count > 0 counts as in stock
     const flag = product.in_stock === true;
     return flag && stockCount > 0;
   }, [product.in_stock, stockCount]);
 
-  // Init default variant when modal opens
   useEffect(() => {
     if (!isOpen) return;
+
     setActiveImg(0);
     setQty(1);
 
     if (variants.length > 0) {
-      setSelectedVariantId((prev) => prev || variants[0].id);
+      setSelectedVariantId((prev) => {
+        const stillExists = variants.some((v) => v.id === prev);
+        return stillExists ? prev : variants[0].id;
+      });
     } else {
       setSelectedVariantId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, variants.length, product.id]);
+  }, [isOpen, variants, product.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
-    return variants.find((v) => v.id === selectedVariantId) ?? null;
+    return variants.find((v) => v.id === selectedVariantId) ?? variants[0] ?? null;
   }, [variants, selectedVariantId]);
 
   const displayPrice = useMemo(() => {
     const min = minVariantPrice(variants);
-    if (min !== null) return { label: "From", value: min };
-    return { label: "", value: Number(product.price) };
+    if (min !== null) return min;
+    return Number(product.price ?? 0);
   }, [variants, product.price]);
 
   const exactPrice = useMemo(() => {
-    if (variants.length > 0) return selectedVariant?.price ?? displayPrice.value;
-    return displayPrice.value;
-  }, [variants.length, selectedVariant, displayPrice.value]);
+    if (variants.length > 0) return selectedVariant?.price ?? displayPrice;
+    return displayPrice;
+  }, [variants.length, selectedVariant, displayPrice]);
 
   const canAddToCart = useMemo(() => {
     if (isBulkHerbal) return false;
     if (!isInStock) return false;
     if (variants.length > 0 && !selectedVariant) return false;
     if (qty <= 0) return false;
-    if (qty > stockCount) return false;
+    if (qty > Math.max(stockCount, 1)) return false;
     return true;
   }, [isBulkHerbal, isInStock, variants.length, selectedVariant, qty, stockCount]);
 
@@ -188,7 +193,12 @@ export default function ProductQuickView({
       alert("Missing WhatsApp number. Set VITE_VAAL_EXOTICS_WHATSAPP in your .env file.");
       return;
     }
-    const msg = `HI Vaal Exotics! I would like to enquire about ${product.name}.`;
+
+    const variantText = selectedVariant
+      ? ` (${selectedVariant.size}${selectedVariant.unit.toUpperCase()})`
+      : "";
+
+    const msg = `Hi Vaal Exotics, I'd like to enquire about ${product.name}${variantText}.`;
     const url = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -199,17 +209,25 @@ export default function ProductQuickView({
       setOpen(false);
       return;
     }
+
     if (!canAddToCart) return;
-    onAddToCart?.({ product, qty, variant: selectedVariant });
+
+    onAddToCart?.({
+      product,
+      qty,
+      variant: selectedVariant,
+    });
+
     setOpen(false);
   };
 
-  // Close on ESC
   useEffect(() => {
     if (!isOpen) return;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
@@ -217,6 +235,7 @@ export default function ProductQuickView({
   const setQtySafe = (next: number) => {
     const n = Number(next);
     if (!Number.isFinite(n)) return;
+
     const min = 1;
     const max = Math.max(1, stockCount || 1);
     setQty(Math.min(Math.max(min, Math.floor(n)), max));
@@ -224,9 +243,8 @@ export default function ProductQuickView({
 
   return (
     <>
-      {/* Optional CARD (hidden on GrowKits because you said popup only) */}
       {!hideCard && (
-        <div className="group overflow-hidden rounded-2xl bg-white/95 backdrop-blur border border-black/10 shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:shadow-[0_16px_45px_rgba(0,0,0,0.14)] transition-shadow">
+        <div className="group overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.10)] transition-shadow hover:shadow-[0_16px_45px_rgba(0,0,0,0.14)]">
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -250,160 +268,192 @@ export default function ProductQuickView({
           </button>
 
           <div className="p-4">
-            <h3 className="text-sm font-extrabold text-black leading-snug line-clamp-2">{product.name}</h3>
+            <h3 className="line-clamp-2 text-sm font-extrabold leading-snug text-black">
+              {product.name}
+            </h3>
             <div className="mt-2 text-lg font-extrabold" style={{ color: accentColor }}>
-              R{formatZar(displayPrice.value)}
+              {formatZar(displayPrice)}
             </div>
           </div>
         </div>
       )}
 
-      {/* ✅ MODAL: this is what you want to show when clicking a product */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          {/* backdrop */}
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/35"
-            onClick={() => setOpen(false)}
-            aria-label="Close"
-          />
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] p-3 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="mx-auto flex h-full w-full max-w-5xl items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative w-full max-h-[92vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/95 text-black shadow"
+                aria-label="Close quick view"
+              >
+                ×
+              </button>
 
-          <div className="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* LEFT: big image */}
-              <div className="relative bg-black/[0.03]">
-                <div className="aspect-square md:aspect-[4/5] w-full">
-                  {images[activeImg] ? (
-                    <img
-                      src={images[activeImg]}
-                      alt={product.name}
-                      className="h-full w-full object-contain p-6"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-black/40">
-                      No image yet
-                    </div>
-                  )}
-                </div>
-
-                {/* thumbnails */}
-                {images.length > 1 && (
-                  <div className="flex gap-2 px-6 pb-6">
-                    {images.slice(0, 6).map((src, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setActiveImg(idx)}
-                        className={`h-14 w-14 overflow-hidden rounded-xl border transition ${
-                          idx === activeImg ? "border-black/40" : "border-black/10 hover:border-black/25"
-                        }`}
-                        title={`Image ${idx + 1}`}
-                      >
-                        <img src={src} alt="" className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT: details */}
-              <div className="p-7">
-                <div className="mt-2 flex items-start justify-between gap-3">
-                  <h2 className="text-2xl font-extrabold tracking-tight text-black leading-snug">
-                    {product.name}
-                  </h2>
-
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black/60 hover:bg-black/5 transition"
-                    aria-label="Close popup"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* price (brand blue/red) */}
-                <div className="mt-3 text-xl font-extrabold" style={{ color: accentColor }}>
-                  R{formatZar(exactPrice)}
-                </div>
-
-                <div className="mt-4 text-sm leading-relaxed text-black/70 whitespace-pre-wrap">
-                  {product.description || "No description yet."}
-                </div>
-
-                {/* Variant dropdown */}
-                {variants.length > 0 && (
-                  <div className="mt-6">
-                    <div className="text-sm font-semibold text-black/80">Variety/Species</div>
-                    <select
-                      value={selectedVariantId}
-                      onChange={(e) => setSelectedVariantId(e.target.value)}
-                      className="mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm text-black outline-none"
-                      style={{ borderColor: accentColor }}
-                    >
-                      {variants.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.size}
-                          {v.unit} • R{formatZar(v.price)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Qty + CTA row */}
-                <div className="mt-6 flex flex-wrap items-center gap-4">
-                  {!isBulkHerbal && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setQtySafe(qty - 1)}
-                        className="h-10 w-10 rounded-full border border-black/15 bg-white text-black/70 hover:bg-black/5"
-                        aria-label="Decrease quantity"
-                      >
-                        −
-                      </button>
-                      <div className="min-w-[28px] text-center text-sm font-semibold text-black/70">
-                        {qty}
+              <div className="grid max-h-[92vh] grid-cols-1 md:grid-cols-[1.05fr_0.95fr]">
+                <div className="border-b border-black/10 bg-[#f7f7f7] md:border-b-0 md:border-r">
+                  <div className="aspect-square w-full bg-white">
+                    {images[activeImg] ? (
+                      <img
+                        src={images[activeImg]}
+                        alt={product.name}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm text-black/40">
+                        No image available
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setQtySafe(qty + 1)}
-                        className="h-10 w-10 rounded-full border border-black/15 bg-white text-black/70 hover:bg-black/5"
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
+                    )}
+                  </div>
+
+                  {images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto border-t border-black/10 bg-white p-3">
+                      {images.map((src, idx) => (
+                        <button
+                          key={`${src}-${idx}`}
+                          type="button"
+                          onClick={() => setActiveImg(idx)}
+                          className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border ${
+                            idx === activeImg ? "border-black" : "border-black/10"
+                          }`}
+                          title={`Image ${idx + 1}`}
+                        >
+                          <img src={src} alt="" className="h-full w-full object-cover" />
+                        </button>
+                      ))}
                     </div>
                   )}
-
-                  <button
-                    type="button"
-                    disabled={!isBulkHerbal && !canAddToCart}
-                    onClick={handleAdd}
-                    className="rounded-xl px-6 py-3 text-sm font-extrabold text-white transition disabled:opacity-40"
-                    style={{
-                      backgroundColor: accentColor,
-                    }}
-                  >
-                    {isBulkHerbal ? "Enquire" : "Add To Basket"}
-                  </button>
                 </div>
 
-                {/* out of stock message */}
-                {!isBulkHerbal && !isInStock && (
-                  <div className="mt-4 text-xs font-semibold" style={{ color: BRAND_RED }}>
-                    This product is out of stock.
-                  </div>
-                )}
+                <div className="max-h-[92vh] overflow-y-auto p-4 sm:p-5 md:p-6">
+                  <div className="pr-10">
+                    <h2 className="text-xl font-extrabold leading-tight text-black sm:text-2xl">
+                      {product.name}
+                    </h2>
 
-                {!isBulkHerbal && !canAddToCart && isInStock && (
-                  <div className="mt-2 text-xs text-black/50">
-                    {variants.length > 0 && !selectedVariant ? "Choose a variant first." : "Quantity exceeds stock."}
+                    <div className="mt-3 text-2xl font-extrabold sm:text-3xl" style={{ color: BRAND_RED }}>
+                      {formatZar(exactPrice)}
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.03] p-3">
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-black/75 sm:text-[15px]">
+                        {product.description || "No description yet."}
+                      </p>
+                    </div>
+
+                    {variants.length > 0 && (
+                      <div className="mt-4">
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-black/55">
+                          Size
+                        </label>
+                        <select
+                          value={selectedVariantId}
+                          onChange={(e) => setSelectedVariantId(e.target.value)}
+                          className="w-full rounded-xl border border-black/15 bg-white px-3 py-3 text-sm outline-none"
+                        >
+                          {variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.size}
+                              {v.unit.toUpperCase()} · {formatZar(v.price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {!isBulkHerbal && (
+                      <div className="mt-4">
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-black/55">
+                          Quantity
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setQtySafe(qty - 1)}
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-black/15 bg-white text-lg font-semibold text-black"
+                          >
+                            −
+                          </button>
+
+                          <div className="min-w-[24px] text-center text-sm font-semibold text-black">
+                            {qty}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setQtySafe(qty + 1)}
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-black/15 bg-white text-lg font-semibold text-black"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        disabled={!isBulkHerbal && !canAddToCart}
+                        onClick={handleAdd}
+                        className={`inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-extrabold ${
+                          isBulkHerbal
+                            ? "text-white"
+                            : canAddToCart
+                            ? "text-white"
+                            : "cursor-not-allowed bg-black/10 text-black/40"
+                        }`}
+                        style={
+                          isBulkHerbal || canAddToCart
+                            ? { backgroundColor: accentColor }
+                            : undefined
+                        }
+                      >
+                        {isBulkHerbal ? "Add to enquiry" : "Add to cart"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-extrabold text-black"
+                      >
+                        Continue browsing
+                      </button>
+                    </div>
+
+                    {isBulkHerbal ? (
+                      <p className="mt-3 text-xs text-black/50">
+                        Add items to your enquiry and continue browsing.
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-xs text-black/50">
+                        Add items to your cart and continue shopping.
+                      </p>
+                    )}
+
+                    {!isBulkHerbal && !isInStock && (
+                      <div className="mt-3 text-xs font-semibold" style={{ color: BRAND_RED }}>
+                        This product is out of stock.
+                      </div>
+                    )}
+
+                    {!isBulkHerbal && !canAddToCart && isInStock && (
+                      <div className="mt-2 text-xs text-black/50">
+                        {variants.length > 0 && !selectedVariant
+                          ? "Choose a variant first."
+                          : "Quantity exceeds stock."}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
