@@ -8,10 +8,12 @@ const CAT = CATEGORY.bulk;
 // Brand accents
 const BRAND_BLUE = "#2F4D7A";
 
-// Optional: put this in .env as VITE_VAAL_EXOTICS_WHATSAPP=+27XXXXXXXXX (or 27XXXXXXXXX)
+// Always fall back to the Vaal Exotics number if env var is missing
+const DEFAULT_OWNER_WHATSAPP = "27782166865";
+
 const OWNER_WHATSAPP =
   ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as string | undefined) ||
-  "";
+  DEFAULT_OWNER_WHATSAPP;
 
 type VariantUnit = "kg" | "l";
 
@@ -111,8 +113,8 @@ function sanitizeWhatsappNumber(input: string) {
 
 function buildWhatsappUrl(numberRaw: string, message: string) {
   const number = sanitizeWhatsappNumber(numberRaw);
-  const encoded = encodeURIComponent(message);
   const waNumber = number.replace("+", "");
+  const encoded = encodeURIComponent(message);
   return `https://wa.me/${waNumber}?text=${encoded}`;
 }
 
@@ -260,9 +262,14 @@ export default function BulkHerbal() {
       `\n\nEstimated total: ${formatZar(cartTotal)}\n\n` +
       `Please confirm availability and final pricing. Thanks!`;
 
-    const numberToUse = OWNER_WHATSAPP || "";
-    const url = buildWhatsappUrl(numberToUse, message);
+    const numberToUse = sanitizeWhatsappNumber(OWNER_WHATSAPP || DEFAULT_OWNER_WHATSAPP);
 
+    if (!numberToUse) {
+      console.error("No valid WhatsApp number configured for Vaal Exotics.");
+      return;
+    }
+
+    const url = buildWhatsappUrl(numberToUse, message);
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
@@ -506,12 +513,9 @@ export default function BulkHerbal() {
               </div>
             )}
 
-            {!OWNER_WHATSAPP && (
-              <p className="mt-2 text-[10px] text-black/45">
-                Tip: set <span className="font-semibold">VITE_VAAL_EXOTICS_WHATSAPP</span> in
-                Netlify env vars to open the chat directly.
-              </p>
-            )}
+            <p className="mt-2 text-[10px] text-black/45">
+              Enquiries will be sent directly to Vaal Exotics on WhatsApp.
+            </p>
           </div>
         </div>
       </div>
@@ -638,7 +642,7 @@ export default function BulkHerbal() {
                     </div>
 
                     <p className="mt-3 text-xs text-black/50">
-                      Add items to your enquiry cart, then send the full list via WhatsApp.
+                      Add items to your enquiry cart, then send the full list directly to Vaal Exotics via WhatsApp.
                     </p>
                   </div>
                 </div>

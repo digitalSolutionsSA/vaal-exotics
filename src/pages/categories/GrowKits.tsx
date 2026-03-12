@@ -96,20 +96,58 @@ function shortDesc(desc: string | null | undefined, maxLen = 68) {
   return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
 }
 
-function parseSizeNumber(size: string) {
-  const cleaned = String(size).trim().replace(",", ".");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
+function normalizeSizeText(size: string) {
+  return String(size ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(",", ".");
 }
 
 function computeChargeableKgFromVariant(variant: ProductVariant | null) {
   if (!variant) return 1;
 
-  const amount = parseSizeNumber(variant.size);
+  const sizeKey = normalizeSizeText(variant.size);
+  const labelKey = normalizeSizeText(shortVariantLabel(variant));
 
-  if (variant.unit === "kg") return amount > 0 ? amount : 1;
-  if (variant.unit === "l") return amount > 0 ? amount : 1;
+  if (
+    sizeKey === "1" ||
+    sizeKey === "1l" ||
+    labelKey === "1l"
+  ) {
+    return 1;
+  }
 
+  if (
+    sizeKey === "2.5" ||
+    sizeKey === "2.5l" ||
+    labelKey === "2.5l"
+  ) {
+    return 1.5;
+  }
+
+  if (
+    sizeKey === "5" ||
+    sizeKey === "5l" ||
+    labelKey === "5l"
+  ) {
+    return 2.5;
+  }
+
+  if (
+    sizeKey === "20" ||
+    sizeKey === "20l" ||
+    labelKey === "20l"
+  ) {
+    return 10;
+  }
+
+  if (sizeKey === "box" || labelKey === "box") {
+    return 1.5;
+  }
+
+  // Safe fallback if a new size gets added later and nobody remembers to update this map,
+  // which is exactly the sort of thing that happens.
   return 1;
 }
 
@@ -194,13 +232,16 @@ export default function GrowKits() {
 
     const chargeableKg = computeChargeableKgFromVariant(v);
     const itemId = `${product.id}:${v?.id ?? "base"}`;
+    const variantLabel = v ? shortVariantLabel(v) : "";
 
     const item = {
       id: itemId,
-      name: v ? `${product.name} (${shortVariantLabel(v)})` : product.name,
+      name: v ? `${product.name} (${variantLabel})` : product.name,
       price,
-      qty: q,
       chargeableKg,
+      category: product.category,
+      size: v?.size ?? "",
+      variantLabel,
       productId: product.id,
       variantId: v?.id ?? null,
       variant: v,
@@ -210,12 +251,12 @@ export default function GrowKits() {
     const anyCart = cart as any;
 
     if (typeof anyCart.addItem === "function") {
-      anyCart.addItem(item);
+      anyCart.addItem(item, q);
       return;
     }
 
     if (typeof anyCart.addToCart === "function") {
-      anyCart.addToCart(item);
+      anyCart.addToCart({ ...item, qty: q });
       return;
     }
 

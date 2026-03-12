@@ -1,78 +1,123 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-const KEY = "vaal_cookie_consent_v2";
+const ACCEPTED_KEY = "ve_cookie_consent_accepted";
+const DECLINED_UNTIL_KEY = "ve_cookie_consent_declined_until";
 
-const BRAND_RED = "#C43A2F";
-const BRAND_BLUE = "#2F4D7A";
+// change this if you want a different cooldown after declining
+const DECLINE_COOLDOWN_HOURS = 12;
 
 export default function CookieConsent() {
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     try {
-      const existing = localStorage.getItem(KEY);
-      if (!existing) setOpen(true);
+      const accepted = localStorage.getItem(ACCEPTED_KEY);
+      const declinedUntilRaw = localStorage.getItem(DECLINED_UNTIL_KEY);
+      const declinedUntil = declinedUntilRaw ? Number(declinedUntilRaw) : 0;
+
+      // accepted once = don't show again
+      if (accepted === "true") {
+        setVisible(false);
+        return;
+      }
+
+      // declined = hide until cooldown expires
+      if (declinedUntil > Date.now()) {
+        setVisible(false);
+        return;
+      }
+
+      // otherwise show on load
+      setVisible(true);
     } catch {
-      setOpen(true);
+      // fallback in case localStorage has issues
+      setVisible(true);
     }
   }, []);
 
-  const save = (value: "accepted" | "declined") => {
+  const handleAccept = () => {
     try {
-      localStorage.setItem(KEY, value);
+      localStorage.setItem(ACCEPTED_KEY, "true");
+      localStorage.removeItem(DECLINED_UNTIL_KEY);
     } catch {}
-    setOpen(false);
+    setVisible(false);
   };
 
-  if (!open) return null;
+  const handleDecline = () => {
+    try {
+      const cooldownMs = DECLINE_COOLDOWN_HOURS * 60 * 60 * 1000;
+      localStorage.setItem(
+        DECLINED_UNTIL_KEY,
+        String(Date.now() + cooldownMs)
+      );
+      localStorage.removeItem(ACCEPTED_KEY);
+    } catch {}
+    setVisible(false);
+  };
+
+  const handleDisclaimer = () => {
+    navigate("/disclaimer");
+  };
+
+  if (!visible) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[10000]">
-      <div className="w-[320px] rounded-xl border border-black/10 bg-white shadow-[0_25px_60px_rgba(0,0,0,0.25)] p-5">
-        {/* Gradient Heading */}
-        <h3
-          className="text-sm font-extrabold tracking-tight mb-2"
-          style={{
-            background: `linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_RED})`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Cookie Policy
-        </h3>
-
-        <p className="text-xs text-black/70 leading-relaxed">
-          We use essential cookies to ensure proper functionality and improve
-          your experience. By continuing to use this website, you agree to our
-          cookie policy.
-        </p>
-
-        <div className="mt-3 text-xs">
-          <Link
-            to="/disclaimer#cookie-policy"
-
-            className="text-black/60 hover:text-black underline"
+    <div
+      className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/45 px-4 pb-4 sm:pb-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cookie-consent-title"
+      aria-describedby="cookie-consent-description"
+    >
+      <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-[#102235] text-white shadow-2xl">
+        <div className="p-5 sm:p-6">
+          <h2
+            id="cookie-consent-title"
+            className="text-lg sm:text-xl font-bold"
           >
-            Read full policy
-          </Link>
-        </div>
+            Cookie Consent
+          </h2>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={() => save("declined")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-black/15 text-black/70 hover:bg-black/5"
+          <p
+            id="cookie-consent-description"
+            className="mt-3 text-sm sm:text-[15px] leading-6 text-white/85"
           >
-            Decline
-          </button>
+            We use cookies and similar technologies to help the website function,
+            improve performance, remember preferences, and support a better user
+            experience. By clicking <strong>Accept</strong>, you agree to the use
+            of cookies. By clicking <strong>Decline</strong>, non-essential cookie
+            use is declined and the notice may appear again later.
+          </p>
 
-          <button
-            onClick={() => save("accepted")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-md text-white"
-            style={{ backgroundColor: BRAND_BLUE }}
-          >
-            Accept
-          </button>
+          <p className="mt-3 text-sm sm:text-[15px] leading-6 text-white/75">
+            Please read our full disclaimer before continuing if you want the
+            complete terms and important legal information.
+          </p>
+
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <button
+              onClick={handleAccept}
+              className="rounded-xl bg-[#C43A2F] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Accept
+            </button>
+
+            <button
+              onClick={handleDecline}
+              className="rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Decline
+            </button>
+
+            <button
+              onClick={handleDisclaimer}
+              className="rounded-xl border border-[#2F4D7A] bg-[#2F4D7A] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Full Disclaimer
+            </button>
+          </div>
         </div>
       </div>
     </div>
