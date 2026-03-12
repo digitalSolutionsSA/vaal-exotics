@@ -12,16 +12,18 @@ export default function OrderSuccess() {
   const cart = useCart();
   const q = useQuery();
 
-  // YOCO successUrl includes orderId
-  const orderId = q.get("orderId") || "";
+  // create-checkout.ts currently sends order_id, not orderId
+  const orderId = q.get("order_id") || q.get("orderId") || "";
 
-  // New key used by Checkout.tsx
   const raw =
     sessionStorage.getItem("pendingOrder") ||
-    sessionStorage.getItem("lastOrder"); // backwards compat
-  const [order] = useState<any>(() => (raw ? JSON.parse(raw) : null));
+    sessionStorage.getItem("lastOrder");
 
-  // Clear cart once when landing here
+  const [order] = useState<any>(() => (raw ? JSON.parse(raw) : null));
+  const [notifyState, setNotifyState] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
+
   useEffect(() => {
     try {
       const clearedKey = `order_cleared_${orderId || "noid"}`;
@@ -33,6 +35,55 @@ export default function OrderSuccess() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function sendOwnerNotification() {
+      if (!orderId || !order) return;
+
+      const sentKey = `owner_notified_${orderId}`;
+      if (sessionStorage.getItem(sentKey)) {
+        setNotifyState("sent");
+        return;
+      }
+
+      try {
+        setNotifyState("sending");
+
+        const res = await fetch("/.netlify/functions/send-order-notification", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId,
+            order,
+          }),
+        });
+
+        const json = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          throw new Error(json?.error || "Failed to send owner notification");
+        }
+
+        if (!cancelled) {
+          sessionStorage.setItem(sentKey, "1");
+          setNotifyState("sent");
+        }
+      } catch (err) {
+        console.error("Owner notification failed:", err);
+        if (!cancelled) setNotifyState("error");
+      }
+    }
+
+    sendOwnerNotification();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, order]);
 
   if (!order) {
     return (
@@ -62,7 +113,6 @@ export default function OrderSuccess() {
     );
   }
 
-  // Build a preview message for the owner (email/WhatsApp later)
   const ownerMessage = [
     `✅ ORDER COMPLETED${orderId ? `: ${orderId}` : ""}`,
     order?.createdAt ? `Created: ${order.createdAt}` : "",
@@ -94,7 +144,7 @@ export default function OrderSuccess() {
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10">
           <h1 className="text-3xl font-semibold">Payment completed</h1>
           <p className="mt-2 text-white/70">
-            Thanks! Your checkout was completed. Final confirmation and the owner notification will be automated via webhook next.
+            Thanks! Your checkout was completed. The owner notification is now being sent automatically from the backend.
           </p>
 
           {orderId ? (
@@ -102,6 +152,26 @@ export default function OrderSuccess() {
               Reference: <span className="font-semibold text-white">{orderId}</span>
             </p>
           ) : null}
+
+          <div className="mt-3 text-sm">
+            {notifyState === "sending" ? (
+              <p className="text-yellow-300">
+                Sending owner WhatsApp notification...
+              </p>
+            ) : null}
+
+            {notifyState === "sent" ? (
+              <p className="text-green-400">
+                Owner WhatsApp notification sent.
+              </p>
+            ) : null}
+
+            {notifyState === "error" ? (
+              <p className="text-red-400">
+                Payment page loaded, but the owner notification could not be sent automatically.
+              </p>
+            ) : null}
+          </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
@@ -131,7 +201,7 @@ export default function OrderSuccess() {
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
               <h2 className="text-lg font-semibold">Owner notification preview</h2>
               <p className="mt-2 text-xs text-white/60">
-                This is the message we’ll send automatically via email/WhatsApp once webhooks are enabled.
+                This is the message sent to WhatsApp from the backend after checkout success.
               </p>
               <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
                 {ownerMessage}

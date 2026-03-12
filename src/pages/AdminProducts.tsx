@@ -20,7 +20,7 @@ type FAQItem = {
   updated_at?: string;
 };
 
-type VariantUnit = "kg" | "l";
+type VariantUnit = "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
@@ -92,7 +92,8 @@ function normalizeVariants(v: any): ProductVariant[] {
   if (!Array.isArray(v)) return [];
   return v
     .map((x) => {
-      const unit = x?.unit === "kg" ? "kg" : "l";
+      const rawUnit = String(x?.unit ?? "").trim().toLowerCase();
+      const unit: VariantUnit = rawUnit === "kg" ? "kg" : rawUnit === "ml" ? "ml" : "l";
       const size = String(x?.size ?? "").trim();
       const price = Number(x?.price);
       if (!size || !Number.isFinite(price)) return null;
@@ -115,6 +116,18 @@ function minVariantPrice(variants: ProductVariant[]): number | null {
 
 function toInStock(stockCount: number) {
   return Number(stockCount) > 0;
+}
+
+function formatVariantLabel(v: ProductVariant) {
+  const size = String(v.size ?? "").trim();
+  const unit = String(v.unit ?? "").trim().toLowerCase();
+
+  const lower = size.toLowerCase();
+  if (lower.endsWith("kg") || lower.endsWith("ml") || lower.endsWith("l")) {
+    return size;
+  }
+
+  return `${size}${unit}`;
 }
 
 export default function AdminProducts() {
@@ -146,7 +159,7 @@ export default function AdminProducts() {
   const [formError, setFormError] = useState<string>("");
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [vUnit, setVUnit] = useState<VariantUnit>("l");
+  const [vUnit, setVUnit] = useState<VariantUnit>("ml");
   const [vSize, setVSize] = useState("");
   const [vPrice, setVPrice] = useState("");
 
@@ -369,7 +382,7 @@ export default function AdminProducts() {
       setStockCount("0");
       setNewFiles([]);
       setVariants([]);
-      setVUnit("l");
+      setVUnit("ml");
       setVSize("");
       setVPrice("");
       if (addImagesInputRef.current) addImagesInputRef.current.value = "";
@@ -419,7 +432,7 @@ export default function AdminProducts() {
   };
 
   const addModalVariant = () => {
-    setMVariants((prev) => [...prev, { id: uid(), unit: "l", size: "", price: 0 }]);
+    setMVariants((prev) => [...prev, { id: uid(), unit: "ml", size: "", price: 0 }]);
   };
 
   const setModalVariant = (id: string, patch: Partial<ProductVariant>) => {
@@ -690,13 +703,14 @@ export default function AdminProducts() {
             <div className="text-sm font-semibold text-black/70">Variants (optional)</div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
               <select value={vUnit} onChange={(e) => setVUnit(e.target.value as VariantUnit)} className={SELECT}>
+                <option value="ml" className="bg-white text-black">ml</option>
                 <option value="l" className="bg-white text-black">l</option>
                 <option value="kg" className="bg-white text-black">kg</option>
               </select>
               <input
                 value={vSize}
                 onChange={(e) => setVSize(e.target.value)}
-                placeholder="Size (e.g. 5L, 1kg)"
+                placeholder="Size (e.g. 30ml, 1L, 1kg)"
                 className={INPUT}
               />
               <input
@@ -718,8 +732,7 @@ export default function AdminProducts() {
                     className="flex items-center justify-between rounded-xl border border-black/10 bg-white px-3 py-2"
                   >
                     <div className="text-xs text-black/80">
-                      {v.size}
-                      {v.unit} · R{formatZar(v.price)}
+                      {formatVariantLabel(v)} · R{formatZar(v.price)}
                     </div>
                     <button type="button" onClick={() => removeVariant(v.id)} className={BTN_SOFT}>
                       Remove
@@ -929,6 +942,7 @@ export default function AdminProducts() {
                         onChange={(e) => setModalVariant(v.id, { unit: e.target.value as VariantUnit })}
                         className={SELECT}
                       >
+                        <option value="ml" className="bg-white text-black">ml</option>
                         <option value="l" className="bg-white text-black">l</option>
                         <option value="kg" className="bg-white text-black">kg</option>
                       </select>
@@ -936,7 +950,7 @@ export default function AdminProducts() {
                       <input
                         value={v.size}
                         onChange={(e) => setModalVariant(v.id, { size: e.target.value })}
-                        placeholder="Size (e.g. 5L, 1kg)"
+                        placeholder="Size (e.g. 30ml, 1L, 1kg)"
                         className={`${INPUT} sm:col-span-2`}
                       />
 

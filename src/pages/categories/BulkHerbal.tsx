@@ -15,7 +15,7 @@ const OWNER_WHATSAPP =
   ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as string | undefined) ||
   DEFAULT_OWNER_WHATSAPP;
 
-type VariantUnit = "kg" | "l";
+type VariantUnit = "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
@@ -83,18 +83,35 @@ function normalizeVariants(p: ShopProduct): ProductVariant[] {
 
   return v
     .filter(Boolean)
-    .map((x: any, i: number) => ({
-      id: String(x.id ?? `${p.id}_${i}`),
-      unit: (x.unit === "l" ? "l" : "kg") as VariantUnit,
-      size: String(x.size ?? ""),
-      price: Number(x.price ?? 0),
-    }))
+    .map((x: any, i: number) => {
+      const rawUnit = String(x?.unit ?? "")
+        .trim()
+        .toLowerCase();
+
+      const unit: VariantUnit =
+        rawUnit === "kg" ? "kg" : rawUnit === "ml" ? "ml" : "l";
+
+      return {
+        id: String(x.id ?? `${p.id}_${i}`),
+        unit,
+        size: String(x.size ?? "").trim(),
+        price: Number(x.price ?? 0),
+      };
+    })
     .filter((x) => x.size && Number.isFinite(x.price) && x.price > 0)
     .sort((a, b) => a.price - b.price);
 }
 
 function shortVariantLabel(v: ProductVariant) {
-  return `${v.size}${v.unit.toUpperCase()}`;
+  const size = String(v.size ?? "").trim();
+  const unit = String(v.unit ?? "").trim().toLowerCase();
+  const lower = size.toLowerCase();
+
+  if (lower.endsWith("kg") || lower.endsWith("l") || lower.endsWith("ml")) {
+    return size.toUpperCase();
+  }
+
+  return `${size}${unit}`.toUpperCase();
 }
 
 function shortDesc(desc: string | null | undefined, maxLen = 90) {
