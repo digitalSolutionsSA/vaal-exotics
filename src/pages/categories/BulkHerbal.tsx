@@ -139,6 +139,9 @@ export default function BulkHerbal() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+
   const [selectedVariantByProduct, setSelectedVariantByProduct] =
     useState<Record<string, string>>({});
 
@@ -191,8 +194,54 @@ export default function BulkHerbal() {
 
   const filteredProducts = useMemo(() => {
     const want = normCategory(CAT);
-    return products.filter((p) => normCategory(p?.category) === want);
-  }, [products]);
+    const q = searchQuery.trim().toLowerCase();
+
+    let list = products.filter((p) => normCategory(p?.category) === want);
+
+    if (q) {
+      list = list.filter((p) => {
+        const name = String(p.name ?? "").toLowerCase();
+        const desc = String(p.description ?? "").toLowerCase();
+        const category = String(p.category ?? "").toLowerCase();
+
+        return name.includes(q) || desc.includes(q) || category.includes(q);
+      });
+    }
+
+    const getDisplayPrice = (p: ShopProduct) => {
+      const vars = normalizeVariants(p);
+      return vars[0]?.price ?? Number(p.price ?? 0);
+    };
+
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return (
+            new Date(a.created_at ?? "").getTime() -
+            new Date(b.created_at ?? "").getTime()
+          );
+
+        case "price-low":
+          return getDisplayPrice(a) - getDisplayPrice(b);
+
+        case "price-high":
+          return getDisplayPrice(b) - getDisplayPrice(a);
+
+        case "name-asc":
+          return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+
+        case "name-desc":
+          return String(b.name ?? "").localeCompare(String(a.name ?? ""));
+
+        case "newest":
+        default:
+          return (
+            new Date(b.created_at ?? "").getTime() -
+            new Date(a.created_at ?? "").getTime()
+          );
+      }
+    });
+  }, [products, searchQuery, sortBy]);
 
   const openQuickView = (p: ShopProduct) => {
     setQuickViewProduct(p);
@@ -318,18 +367,66 @@ export default function BulkHerbal() {
 
       {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-[2400px] px-3 sm:px-4 lg:px-6 pt-14 sm:pt-16 pb-[170px] sm:pb-[190px]">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
-              Bulk Herbal Products
-            </h1>
-            <p className="mt-2 text-white/80 text-xs sm:text-sm">
-              Add items to your enquiry list, then send via WhatsApp.
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
+                Bulk Herbal Products
+              </h1>
+              <p className="mt-2 text-white/80 text-xs sm:text-sm">
+                Add items to your enquiry list, then send via WhatsApp.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
+            <div>
+              <label className="mb-1 block text-[11px] sm:text-xs font-bold uppercase tracking-wide text-white/75">
+                Search products
+              </label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or description..."
+                className="w-full rounded-xl border border-white/20 bg-white/95 px-4 py-3 text-sm text-black outline-none placeholder:text-black/40"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] sm:text-xs font-bold uppercase tracking-wide text-white/75">
+                Sort by
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full rounded-xl border border-white/20 bg-white/95 px-4 py-3 text-sm text-black outline-none"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="price-low">Price: Low to high</option>
+                <option value="price-high">Price: High to low</option>
+                <option value="name-asc">Name: A to Z</option>
+                <option value="name-desc">Name: Z to A</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="text-white/85 text-xs sm:text-sm">
+            Showing {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"}
           </div>
         </div>
 
         {loading && <div className="mt-6 text-white">Loading products...</div>}
+
+        {!loading && filteredProducts.length === 0 && (
+          <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 backdrop-blur p-6 text-center text-white">
+            <div className="text-lg font-extrabold">No products found</div>
+            <p className="mt-2 text-sm text-white/80">
+              Try a different search term or change the sorting.
+            </p>
+          </div>
+        )}
 
         <div
           className="
@@ -581,9 +678,7 @@ export default function BulkHerbal() {
                           type="button"
                           onClick={() => setQuickViewImage(index)}
                           className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border ${
-                            quickViewImage === index
-                              ? "border-black"
-                              : "border-black/10"
+                            quickViewImage === index ? "border-black" : "border-black/10"
                           }`}
                         >
                           <img
@@ -659,7 +754,8 @@ export default function BulkHerbal() {
                     </div>
 
                     <p className="mt-3 text-xs text-black/50">
-                      Add items to your enquiry cart, then send the full list directly to Vaal Exotics via WhatsApp.
+                      Add items to your enquiry cart, then send the full list directly to
+                      Vaal Exotics via WhatsApp.
                     </p>
                   </div>
                 </div>

@@ -10,11 +10,12 @@ const CAT = CATEGORY.growkits;
 //const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
-type VariantUnit = "kg" | "l";
+type VariantUnit = "" | "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
-  unit: VariantUnit;
+  name?: string;
+  unit?: VariantUnit;
   size: string;
   price: number;
 };
@@ -70,13 +71,21 @@ function normalizeVariants(p: ShopProduct): ProductVariant[] {
 
   return v
     .filter(Boolean)
-    .map((x: any, i: number) => ({
-      id: String(x.id ?? `${p.id}_${i}`),
-      unit: (x.unit === "l" ? "l" : "kg") as VariantUnit,
-      size: String(x.size ?? ""),
-      price: Number(x.price ?? 0),
-    }))
-    .filter((x) => x.size && Number.isFinite(x.price) && x.price > 0)
+    .map((x: any, i: number) => {
+      const rawUnit = String(x?.unit ?? "").trim().toLowerCase();
+
+      const unit: VariantUnit =
+        rawUnit === "kg" ? "kg" : rawUnit === "ml" ? "ml" : rawUnit === "l" ? "l" : "";
+
+      return {
+        id: String(x.id ?? `${p.id}_${i}`),
+        name: String(x?.name ?? "").trim(),
+        unit,
+        size: String(x.size ?? "").trim(),
+        price: Number(x.price ?? 0),
+      };
+    })
+    .filter((x) => (x.name || x.size) && Number.isFinite(x.price) && x.price > 0)
     .sort((a, b) => a.price - b.price);
 }
 
@@ -87,7 +96,29 @@ function fromPrice(p: ShopProduct) {
 }
 
 function shortVariantLabel(v: ProductVariant) {
-  return `${v.size}${v.unit.toUpperCase()}`;
+  const variantName = String(v.name ?? "").trim();
+  const size = String(v.size ?? "").trim();
+  const unit = String(v.unit ?? "").trim().toLowerCase();
+
+  let sizeLabel = "";
+
+  if (size) {
+    const lower = size.toLowerCase();
+
+    if (lower.endsWith("kg") || lower.endsWith("ml") || lower.endsWith("l")) {
+      sizeLabel = size;
+    } else if (unit) {
+      sizeLabel = `${size}${unit}`;
+    } else {
+      sizeLabel = size;
+    }
+  }
+
+  if (variantName && sizeLabel) return `${variantName} ${sizeLabel}`;
+  if (variantName) return variantName;
+  if (sizeLabel) return sizeLabel;
+
+  return "Variant";
 }
 
 function shortDesc(desc: string | null | undefined, maxLen = 68) {
@@ -110,35 +141,19 @@ function computeChargeableKgFromVariant(variant: ProductVariant | null) {
   const sizeKey = normalizeSizeText(variant.size);
   const labelKey = normalizeSizeText(shortVariantLabel(variant));
 
-  if (
-    sizeKey === "1" ||
-    sizeKey === "1l" ||
-    labelKey === "1l"
-  ) {
+  if (sizeKey === "1" || sizeKey === "1l" || labelKey === "1l") {
     return 1;
   }
 
-  if (
-    sizeKey === "2.5" ||
-    sizeKey === "2.5l" ||
-    labelKey === "2.5l"
-  ) {
+  if (sizeKey === "2.5" || sizeKey === "2.5l" || labelKey === "2.5l") {
     return 1.5;
   }
 
-  if (
-    sizeKey === "5" ||
-    sizeKey === "5l" ||
-    labelKey === "5l"
-  ) {
+  if (sizeKey === "5" || sizeKey === "5l" || labelKey === "5l") {
     return 2.5;
   }
 
-  if (
-    sizeKey === "20" ||
-    sizeKey === "20l" ||
-    labelKey === "20l"
-  ) {
+  if (sizeKey === "20" || sizeKey === "20l" || labelKey === "20l") {
     return 10;
   }
 
@@ -146,8 +161,6 @@ function computeChargeableKgFromVariant(variant: ProductVariant | null) {
     return 1.5;
   }
 
-  // Safe fallback if a new size gets added later and nobody remembers to update this map,
-  // which is exactly the sort of thing that happens.
   return 1;
 }
 

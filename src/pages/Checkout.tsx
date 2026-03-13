@@ -76,20 +76,16 @@ export default function Checkout() {
     setBusy(true);
 
     try {
-      // ✅ Totals consistency guard (prevents charging wrong amount)
       const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
       const courierFee = asFiniteNumber((cart as any).courierFee);
       const grandTotal = asFiniteNumber((cart as any).grandTotal);
 
-      // If any totals are not finite, stop immediately
       if (![itemsTotal, courierFee, grandTotal].every(Number.isFinite)) {
         throw new Error("Totals are invalid (NaN). Please refresh and try again.");
       }
 
-      // Calculate expected grand total from components
       const expected = itemsTotal + courierFee;
 
-      // Allow tiny floating point drift (1 cent)
       if (Math.abs(expected - grandTotal) > 0.01) {
         throw new Error(
           `Totals mismatch. Items (${formatZAR(itemsTotal)}) + Courier (${formatZAR(
@@ -98,22 +94,25 @@ export default function Checkout() {
         );
       }
 
-      // We'll charge the grand total (items + courier).
       const amountCents = toCents(grandTotal);
 
       if (!Number.isInteger(amountCents) || amountCents <= 0) {
         throw new Error("Total amount is invalid.");
       }
 
-      // ✅ Shape items for backend (snake_case fields to match typical DB/server expectations)
       const items = cart.items.map((it: any) => {
         const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
         const priceZar = asFiniteNumber(it.price);
+
         return {
+          // send both so the backend has less to complain about
           id: it.id,
+          product_id: it.product_id ?? it.productId ?? it.id,
           name: it.name,
           qty,
+          quantity: qty,
           price_cents: toCents(priceZar),
+          priceCents: toCents(priceZar),
         };
       });
 
@@ -128,13 +127,12 @@ export default function Checkout() {
       const address = {
         line1: line1.trim(),
         line2: line2.trim() || undefined,
-        // keep suburb inside city string for MVP
-        city: `${suburb.trim()}${suburb.trim() ? ", " : ""}${city.trim()}`.trim(),
+        suburb: suburb.trim(),
+        city: city.trim(),
         province: province.trim(),
         postalCode: postalCode.trim(),
       };
 
-      // Store a "pending" payload so the success page can show details
       const pendingPayload = {
         createdAt: new Date().toISOString(),
         totals: {
@@ -143,42 +141,64 @@ export default function Checkout() {
           totalKg: asFiniteNumber((cart as any).totalKg),
           grandTotal,
         },
-        customer: { firstName, lastName, email, phone },
-        address: { line1, line2, suburb, city, province, postalCode },
+        customer: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+        },
+        address: {
+          line1: line1.trim(),
+          line2: line2.trim(),
+          suburb: suburb.trim(),
+          city: city.trim(),
+          province: province.trim(),
+          postalCode: postalCode.trim(),
+        },
         items: cart.items,
       };
+
       sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
+
+      const requestBody = {
+        amountCents,
+        currency: "ZAR",
+        items,
+        customer,
+        address,
+      };
+
+      console.log("[Checkout] create-checkout request body:", requestBody);
 
       const res = await fetch("/.netlify/functions/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amountCents,
-          currency: "ZAR",
-          items,
-          customer,
-          address,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      // ✅ Read raw text first (functions often return plain text on errors)
       const raw = await res.text();
       const data = safeJsonParse(raw);
+
+      console.log("[Checkout] create-checkout response status:", res.status);
+      console.log("[Checkout] create-checkout response raw:", raw);
+      console.log("[Checkout] create-checkout response parsed:", data);
 
       if (!res.ok) {
         const msg =
           (data as any)?.error ||
-          (data as any)?.message ||
           (data as any)?.details?.message ||
+          (data as any)?.details?.error ||
+          (typeof (data as any)?.details === "string" ? (data as any).details : "") ||
           raw ||
           `Failed to create Yoco checkout (${res.status}).`;
 
         throw new Error(String(msg));
       }
 
-      // Support either "redirectUrl" or "checkout_url" depending on your function output
       const redirectUrl =
-        (data as any)?.redirectUrl || (data as any)?.checkout_url;
+        (data as any)?.redirectUrl ||
+        (data as any)?.checkout_url ||
+        (data as any)?.url;
 
       if (!redirectUrl || typeof redirectUrl !== "string") {
         throw new Error(
@@ -188,6 +208,7 @@ export default function Checkout() {
 
       window.location.href = redirectUrl;
     } catch (e: any) {
+      console.error("[Checkout] startYocoCheckout error:", e);
       setError(e?.message || "Payment failed to start.");
     } finally {
       setBusy(false);
@@ -295,7 +316,7 @@ export default function Checkout() {
               ))}
             </div>
 
-            <div className="mt-5 border-t border-white/10 pt-4 text-sm space-y-2">
+            <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-white/70">Items total</span>
                 <span className="font-semibold">
@@ -314,7 +335,7 @@ export default function Checkout() {
                   {cart.totalKg.toFixed(1)}kg
                 </span>
               </div>
-              <div className="flex justify-between text-base pt-2">
+              <div className="flex justify-between pt-2 text-base">
                 <span className="text-white/70">Grand total</span>
                 <span className="text-lg font-semibold">
                   {formatZAR(cart.grandTotal)}
@@ -331,7 +352,7 @@ export default function Checkout() {
             <button
               disabled={!canPay || busy}
               onClick={startYocoCheckout}
-              className="mt-6 h-11 w-full rounded-lg bg-white text-black text-sm font-semibold hover:bg-white/90 disabled:opacity-40"
+              className="mt-6 h-11 w-full rounded-lg bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
             >
               {busy ? "Redirecting to payment..." : "Pay now"}
             </button>
@@ -350,7 +371,7 @@ export default function Checkout() {
             <button
               type="button"
               onClick={() => nav("/cart")}
-              className="mt-3 h-10 w-full rounded-lg border border-white/15 bg-white/5 text-white text-sm hover:bg-white/10"
+              className="mt-3 h-10 w-full rounded-lg border border-white/15 bg-white/5 text-sm text-white hover:bg-white/10"
             >
               Back to cart
             </button>

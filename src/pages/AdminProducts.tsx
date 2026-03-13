@@ -20,11 +20,12 @@ type FAQItem = {
   updated_at?: string;
 };
 
-type VariantUnit = "kg" | "l" | "ml";
+type VariantUnit = "" | "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
-  unit: VariantUnit;
+  name?: string;
+  unit?: VariantUnit;
   size: string;
   price: number;
 };
@@ -90,15 +91,24 @@ function formatZar(n: any): string {
 
 function normalizeVariants(v: any): ProductVariant[] {
   if (!Array.isArray(v)) return [];
+
   return v
     .map((x) => {
       const rawUnit = String(x?.unit ?? "").trim().toLowerCase();
-      const unit: VariantUnit = rawUnit === "kg" ? "kg" : rawUnit === "ml" ? "ml" : "l";
+
+      const unit: VariantUnit =
+        rawUnit === "kg" ? "kg" : rawUnit === "ml" ? "ml" : rawUnit === "l" ? "l" : "";
+
+      const name = String(x?.name ?? "").trim();
       const size = String(x?.size ?? "").trim();
       const price = Number(x?.price);
-      if (!size || !Number.isFinite(price)) return null;
+
+      if (!Number.isFinite(price)) return null;
+      if (!name && !size) return null;
+
       return {
         id: String(x?.id ?? uid()),
+        name,
         unit,
         size,
         price,
@@ -119,15 +129,29 @@ function toInStock(stockCount: number) {
 }
 
 function formatVariantLabel(v: ProductVariant) {
+  const variantName = String(v.name ?? "").trim();
   const size = String(v.size ?? "").trim();
   const unit = String(v.unit ?? "").trim().toLowerCase();
 
-  const lower = size.toLowerCase();
-  if (lower.endsWith("kg") || lower.endsWith("ml") || lower.endsWith("l")) {
-    return size;
+  let sizeLabel = "";
+
+  if (size) {
+    const lower = size.toLowerCase();
+
+    if (lower.endsWith("kg") || lower.endsWith("ml") || lower.endsWith("l")) {
+      sizeLabel = size;
+    } else if (unit) {
+      sizeLabel = `${size}${unit}`;
+    } else {
+      sizeLabel = size;
+    }
   }
 
-  return `${size}${unit}`;
+  if (variantName && sizeLabel) return `${variantName} ${sizeLabel}`;
+  if (variantName) return variantName;
+  if (sizeLabel) return sizeLabel;
+
+  return "Variant";
 }
 
 export default function AdminProducts() {
@@ -159,7 +183,8 @@ export default function AdminProducts() {
   const [formError, setFormError] = useState<string>("");
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [vUnit, setVUnit] = useState<VariantUnit>("ml");
+  const [vName, setVName] = useState("");
+  const [vUnit, setVUnit] = useState<VariantUnit>("");
   const [vSize, setVSize] = useState("");
   const [vPrice, setVPrice] = useState("");
 
@@ -279,11 +304,19 @@ export default function AdminProducts() {
   const removeNewFile = (idx: number) => setNewFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const addVariant = () => {
+    const variantName = vName.trim();
     const size = vSize.trim();
     const parsed = parseZar(vPrice);
-    if (!size || parsed === null) return;
 
-    setVariants((prev) => [...prev, { id: uid(), unit: vUnit, size, price: parsed }]);
+    if ((!variantName && !size) || parsed === null) return;
+
+    setVariants((prev) => [
+      ...prev,
+      { id: uid(), name: variantName, unit: vUnit, size, price: parsed },
+    ]);
+
+    setVName("");
+    setVUnit("");
     setVSize("");
     setVPrice("");
   };
@@ -382,7 +415,8 @@ export default function AdminProducts() {
       setStockCount("0");
       setNewFiles([]);
       setVariants([]);
-      setVUnit("ml");
+      setVName("");
+      setVUnit("");
       setVSize("");
       setVPrice("");
       if (addImagesInputRef.current) addImagesInputRef.current.value = "";
@@ -404,7 +438,14 @@ export default function AdminProducts() {
 
     setBusy(true);
     try {
-      const urls = await uploadImages(productId, files.slice(0, MAX_IMAGES_PER_PRODUCT));
+      const remaining = Math.max(0, MAX_IMAGES_PER_PRODUCT - mImages.length);
+      if (remaining === 0) {
+        e.target.value = "";
+        setBusy(false);
+        return;
+      }
+
+      const urls = await uploadImages(productId, files.slice(0, remaining));
       const next = [...mImages, ...urls].slice(0, MAX_IMAGES_PER_PRODUCT);
       setMImages(next);
       await updateProduct(productId, { images: next });
@@ -432,7 +473,7 @@ export default function AdminProducts() {
   };
 
   const addModalVariant = () => {
-    setMVariants((prev) => [...prev, { id: uid(), unit: "ml", size: "", price: 0 }]);
+    setMVariants((prev) => [...prev, { id: uid(), name: "", unit: "", size: "", price: 0 }]);
   };
 
   const setModalVariant = (id: string, patch: Partial<ProductVariant>) => {
@@ -702,23 +743,33 @@ export default function AdminProducts() {
           <div className={SUBPANEL}>
             <div className="text-sm font-semibold text-black/70">Variants (optional)</div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <input
+                value={vName}
+                onChange={(e) => setVName(e.target.value)}
+                placeholder="Variant kind (e.g. Oyster, Lion's Mane)"
+                className={INPUT}
+              />
+              <input
+                value={vSize}
+                onChange={(e) => setVSize(e.target.value)}
+                placeholder="Size (optional, e.g. Box, 500, 1kg)"
+                className={INPUT}
+              />
               <select value={vUnit} onChange={(e) => setVUnit(e.target.value as VariantUnit)} className={SELECT}>
+                <option value="" className="bg-white text-black">No unit</option>
                 <option value="ml" className="bg-white text-black">ml</option>
                 <option value="l" className="bg-white text-black">l</option>
                 <option value="kg" className="bg-white text-black">kg</option>
               </select>
-              <input
-                value={vSize}
-                onChange={(e) => setVSize(e.target.value)}
-                placeholder="Size (e.g. 30ml, 1L, 1kg)"
-                className={INPUT}
-              />
               <input
                 value={vPrice}
                 onChange={(e) => setVPrice(e.target.value)}
                 placeholder="Price"
                 className={INPUT}
               />
+            </div>
+
+            <div className="mt-3">
               <button type="button" onClick={addVariant} className={BTN_SOFT}>
                 Add variant
               </button>
@@ -741,6 +792,10 @@ export default function AdminProducts() {
                 ))}
               </div>
             )}
+
+            <div className="mt-3 text-xs text-black/60">
+              Leave unit on <strong>No unit</strong> for things like Blue Oyster, King Oyster, Grow Box, etc.
+            </div>
           </div>
 
           <button disabled={busy} className={BTN_RED}>
@@ -841,8 +896,8 @@ export default function AdminProducts() {
             if (e.target === e.currentTarget) setOpenProductId(null);
           }}
         >
-          <div className="w-full max-w-3xl rounded-2xl border border-black/10 bg-white p-5 text-black shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
+          <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/10 bg-white p-5 text-black shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-black/10 pb-4">
               <div>
                 <div className="text-lg font-extrabold text-black">Edit product</div>
                 <div className="mt-1 text-xs text-black/60">Changes save to Supabase. Click outside to close.</div>
@@ -853,137 +908,161 @@ export default function AdminProducts() {
               </button>
             </div>
 
-            {mError && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-900">
-                {mError}
-              </div>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input value={mName} onChange={(e) => setMName(e.target.value)} placeholder="Product name" className={INPUT} />
-                <select value={mCategory} onChange={(e) => setMCategory(e.target.value)} className={SELECT}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c} className="bg-white text-black">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <input
-                  value={mPrice}
-                  onChange={(e) => setMPrice(e.target.value)}
-                  placeholder="Base price (or leave if variants)"
-                  className={`${INPUT} sm:col-span-2`}
-                />
-                <input value={mStock} onChange={(e) => setMStock(e.target.value)} placeholder="Stock count" className={INPUT} />
-              </div>
-
-              <textarea
-                value={mDescription}
-                onChange={(e) => setMDescription(e.target.value)}
-                placeholder="Description"
-                className="w-full min-h-[110px] rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
-              />
-
-              <div className={SUBPANEL}>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-black/70">Images</div>
-                  <div className="text-xs text-black/60">Max {MAX_IMAGES_PER_PRODUCT}</div>
+            <div className="mt-4 flex-1 overflow-y-auto pr-1">
+              {mError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-900">
+                  {mError}
                 </div>
+              )}
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {mImages.map((url, idx) => (
-                    <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2">
-                      <div className="max-w-[220px] truncate text-xs text-black/80">{url}</div>
-                      <button type="button" onClick={() => removeModalImage(openProductId, idx)} className={BTN_SOFT}>
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  {mImages.length === 0 && <div className="text-xs text-black/60">No images yet.</div>}
-                </div>
-
-                <div className="mt-3 flex items-center gap-2">
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <input
-                    ref={modalFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => onModalPickImages(openProductId, e)}
-                    className="hidden"
+                    value={mName}
+                    onChange={(e) => setMName(e.target.value)}
+                    placeholder="Product name"
+                    className={INPUT}
                   />
+                  <select value={mCategory} onChange={(e) => setMCategory(e.target.value)} className={SELECT}>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c} className="bg-white text-black">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <input
+                    value={mPrice}
+                    onChange={(e) => setMPrice(e.target.value)}
+                    placeholder="Base price (or leave if variants)"
+                    className={`${INPUT} sm:col-span-2`}
+                  />
+                  <input
+                    value={mStock}
+                    onChange={(e) => setMStock(e.target.value)}
+                    placeholder="Stock count"
+                    className={INPUT}
+                  />
+                </div>
+
+                <textarea
+                  value={mDescription}
+                  onChange={(e) => setMDescription(e.target.value)}
+                  placeholder="Description"
+                  className="w-full min-h-[110px] rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black placeholder:text-black/40 outline-none focus:border-black/30"
+                />
+
+                <div className={SUBPANEL}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-black/70">Images</div>
+                    <div className="text-xs text-black/60">Max {MAX_IMAGES_PER_PRODUCT}</div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {mImages.map((url, idx) => (
+                      <div key={`${url}_${idx}`} className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2">
+                        <div className="max-w-[220px] truncate text-xs text-black/80">{url}</div>
+                        <button type="button" onClick={() => removeModalImage(openProductId, idx)} className={BTN_SOFT}>
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {mImages.length === 0 && <div className="text-xs text-black/60">No images yet.</div>}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      ref={modalFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => onModalPickImages(openProductId, e)}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={busy || mImages.length >= MAX_IMAGES_PER_PRODUCT}
+                      onClick={triggerModalFilePicker}
+                      className={`${BTN_SOFT} disabled:opacity-60`}
+                    >
+                      Upload images
+                    </button>
+                  </div>
+                </div>
+
+                <div className={SUBPANEL}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-black/70">Variants</div>
+                    <button type="button" onClick={addModalVariant} className={BTN_SOFT}>
+                      Add variant
+                    </button>
+                  </div>
+
+                  <div className="mt-3 max-h-[320px] overflow-y-auto pr-1">
+                    <div className="grid gap-2">
+                      {mVariants.map((v) => (
+                        <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 bg-white p-3 sm:grid-cols-5">
+                          <input
+                            value={v.name ?? ""}
+                            onChange={(e) => setModalVariant(v.id, { name: e.target.value })}
+                            placeholder="Variant kind"
+                            className={INPUT}
+                          />
+
+                          <input
+                            value={v.size}
+                            onChange={(e) => setModalVariant(v.id, { size: e.target.value })}
+                            placeholder="Size (optional)"
+                            className={INPUT}
+                          />
+
+                          <select
+                            value={v.unit ?? ""}
+                            onChange={(e) => setModalVariant(v.id, { unit: e.target.value as VariantUnit })}
+                            className={SELECT}
+                          >
+                            <option value="" className="bg-white text-black">No unit</option>
+                            <option value="ml" className="bg-white text-black">ml</option>
+                            <option value="l" className="bg-white text-black">l</option>
+                            <option value="kg" className="bg-white text-black">kg</option>
+                          </select>
+
+                          <input
+                            value={String(v.price ?? "")}
+                            onChange={(e) => setModalVariant(v.id, { price: parseZar(e.target.value) ?? 0 })}
+                            placeholder="Price"
+                            className={INPUT}
+                          />
+
+                          <button type="button" onClick={() => removeModalVariant(v.id)} className={BTN_SOFT}>
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+
+                      {mVariants.length === 0 && (
+                        <div className="text-xs text-black/60">No variants. Base price will be used.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sticky bottom-0 mt-2 flex flex-col gap-2 border-t border-black/10 bg-white pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <button type="button" disabled={busy} onClick={saveModal} className={BTN_RED}>
+                    {busy ? "Saving..." : "Save changes"}
+                  </button>
+
                   <button
                     type="button"
-                    disabled={busy || mImages.length >= MAX_IMAGES_PER_PRODUCT}
-                    onClick={triggerModalFilePicker}
-                    className={`${BTN_SOFT} disabled:opacity-60`}
+                    disabled={busy}
+                    onClick={deleteModalProduct}
+                    className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm font-extrabold text-red-900 hover:bg-red-500/15 disabled:opacity-60"
                   >
-                    Upload images
+                    Delete product
                   </button>
                 </div>
-              </div>
-
-              <div className={SUBPANEL}>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-black/70">Variants</div>
-                  <button type="button" onClick={addModalVariant} className={BTN_SOFT}>
-                    Add variant
-                  </button>
-                </div>
-
-                <div className="mt-3 grid gap-2">
-                  {mVariants.map((v) => (
-                    <div key={v.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 bg-white p-3 sm:grid-cols-5">
-                      <select
-                        value={v.unit}
-                        onChange={(e) => setModalVariant(v.id, { unit: e.target.value as VariantUnit })}
-                        className={SELECT}
-                      >
-                        <option value="ml" className="bg-white text-black">ml</option>
-                        <option value="l" className="bg-white text-black">l</option>
-                        <option value="kg" className="bg-white text-black">kg</option>
-                      </select>
-
-                      <input
-                        value={v.size}
-                        onChange={(e) => setModalVariant(v.id, { size: e.target.value })}
-                        placeholder="Size (e.g. 30ml, 1L, 1kg)"
-                        className={`${INPUT} sm:col-span-2`}
-                      />
-
-                      <input
-                        value={String(v.price ?? "")}
-                        onChange={(e) => setModalVariant(v.id, { price: parseZar(e.target.value) ?? 0 })}
-                        placeholder="Price"
-                        className={INPUT}
-                      />
-
-                      <button type="button" onClick={() => removeModalVariant(v.id)} className={BTN_SOFT}>
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-
-                  {mVariants.length === 0 && <div className="text-xs text-black/60">No variants. Base price will be used.</div>}
-                </div>
-              </div>
-
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <button type="button" disabled={busy} onClick={saveModal} className={BTN_RED}>
-                  {busy ? "Saving..." : "Save changes"}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={deleteModalProduct}
-                  className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm font-extrabold text-red-900 hover:bg-red-500/15 disabled:opacity-60"
-                >
-                  Delete product
-                </button>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { formatZAR } from "../lib/money";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "../context/cart";
 
 function useQuery() {
@@ -24,6 +24,8 @@ export default function OrderSuccess() {
     "idle" | "sending" | "sent" | "error"
   >("idle");
 
+  const notificationStartedRef = useRef(false);
+
   useEffect(() => {
     try {
       const clearedKey = `order_cleared_${orderId || "noid"}`;
@@ -43,13 +45,25 @@ export default function OrderSuccess() {
       if (!orderId || !order) return;
 
       const sentKey = `owner_notified_${orderId}`;
+
       if (sessionStorage.getItem(sentKey)) {
-        setNotifyState("sent");
+        if (!cancelled) setNotifyState("sent");
         return;
       }
 
+      if (notificationStartedRef.current) {
+        return;
+      }
+
+      notificationStartedRef.current = true;
+
       try {
-        setNotifyState("sending");
+        if (!cancelled) setNotifyState("sending");
+
+        console.log("[OrderSuccess] sendOwnerNotification start", {
+          orderId,
+          order,
+        });
 
         const res = await fetch("/.netlify/functions/send-order-notification", {
           method: "POST",
@@ -62,18 +76,42 @@ export default function OrderSuccess() {
           }),
         });
 
-        const json = await res.json().catch(() => null);
+        const text = await res.text();
+        let json: any = null;
+
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          json = null;
+        }
+
+        console.log("[OrderSuccess] notification response:", {
+          status: res.status,
+          ok: res.ok,
+          json,
+          rawText: text,
+        });
 
         if (!res.ok) {
-          throw new Error(json?.error || "Failed to send owner notification");
+          throw new Error(
+            json?.error || text || "Failed to send owner notification"
+          );
         }
 
         if (!cancelled) {
           sessionStorage.setItem(sentKey, "1");
-          setNotifyState("sent");
+
+          if (json?.ok || json?.alreadySent) {
+            setNotifyState("sent");
+          } else {
+            setNotifyState("error");
+          }
         }
       } catch (err) {
         console.error("Owner notification failed:", err);
+
+        notificationStartedRef.current = false;
+
         if (!cancelled) setNotifyState("error");
       }
     }
@@ -85,14 +123,25 @@ export default function OrderSuccess() {
     };
   }, [orderId, order]);
 
+  useEffect(() => {
+    if (notifyState !== "sending") return;
+
+    const timeoutId = window.setTimeout(() => {
+      setNotifyState((prev) => (prev === "sending" ? "error" : prev));
+    }, 10000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notifyState]);
+
   if (!order) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center p-10">
         <div className="max-w-lg text-center">
           <h1 className="text-2xl font-semibold">No order details found</h1>
           <p className="mt-2 text-white/70">
-            We couldn’t load the order summary from this device/session. If you just paid,
-            your payment reference should still be recorded on the merchant side.
+            We couldn’t load the order summary from this device/session. If you
+            just paid, your payment reference should still be recorded on the
+            merchant side.
           </p>
           <div className="mt-6 flex gap-3 justify-center">
             <Link
@@ -144,31 +193,34 @@ export default function OrderSuccess() {
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10">
           <h1 className="text-3xl font-semibold">Payment completed</h1>
           <p className="mt-2 text-white/70">
-            Thanks! Your checkout was completed. The owner notification is now being sent automatically from the backend.
+            Thanks! Your checkout was completed. The owner notification is being
+            submitted automatically from the backend.
           </p>
 
           {orderId ? (
             <p className="mt-2 text-sm text-white/60">
-              Reference: <span className="font-semibold text-white">{orderId}</span>
+              Reference:{" "}
+              <span className="font-semibold text-white">{orderId}</span>
             </p>
           ) : null}
 
           <div className="mt-3 text-sm">
             {notifyState === "sending" ? (
               <p className="text-yellow-300">
-                Sending owner WhatsApp notification...
+                Submitting owner WhatsApp notification...
               </p>
             ) : null}
 
             {notifyState === "sent" ? (
               <p className="text-green-400">
-                Owner WhatsApp notification sent.
+                Owner WhatsApp notification accepted.
               </p>
             ) : null}
 
             {notifyState === "error" ? (
               <p className="text-red-400">
-                Payment page loaded, but the owner notification could not be sent automatically.
+                Payment page loaded, but the owner notification could not be
+                confirmed automatically.
               </p>
             ) : null}
           </div>
@@ -201,7 +253,8 @@ export default function OrderSuccess() {
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
               <h2 className="text-lg font-semibold">Owner notification preview</h2>
               <p className="mt-2 text-xs text-white/60">
-                This is the message sent to WhatsApp from the backend after checkout success.
+                This is the message submitted to WhatsApp from the backend after
+                checkout success.
               </p>
               <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
                 {ownerMessage}
