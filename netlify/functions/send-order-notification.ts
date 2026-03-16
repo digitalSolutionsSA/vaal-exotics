@@ -50,7 +50,59 @@ function redactToken(token?: string | null) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
-async function sendWhatsAppTemplate() {
+function truncate(value: string, max = 100) {
+  const v = String(value || "").trim();
+  if (v.length <= max) return v;
+  return `${v.slice(0, max - 3)}...`;
+}
+
+function formatMoney(value: any) {
+  return `R ${Number(value || 0).toFixed(2)}`;
+}
+
+function buildTemplateFields(orderId: string, order: any) {
+  const firstName = String(order?.customer?.firstName || "").trim();
+  const lastName = String(order?.customer?.lastName || "").trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() || "N/A";
+
+  const itemsSummary = Array.isArray(order?.items)
+    ? order.items
+        .map((it: any) => {
+          const qty = Number(it?.qty || 0);
+          const name = String(it?.name || "Item").trim();
+          return `${qty}x ${name}`;
+        })
+        .join(", ")
+    : "No items";
+
+  const addressParts = [
+    order?.address?.line1 || "",
+    order?.address?.line2 || "",
+    order?.address?.suburb || "",
+    order?.address?.city || "",
+    order?.address?.province || "",
+    order?.address?.postalCode || "",
+  ].filter(Boolean);
+
+  const address = addressParts.join(", ");
+
+  return {
+    orderId: truncate(orderId, 60),
+    customerName: truncate(fullName, 60),
+    amount: truncate(formatMoney(order?.totals?.grandTotal), 30),
+    courier: truncate(
+      `${formatMoney(order?.totals?.courierFee)} (Total kg: ${Number(
+        order?.totals?.totalKg || 0
+      ).toFixed(1)}kg)`,
+      60
+    ),
+    items: truncate(itemsSummary, 200),
+    address: truncate(address, 200),
+    phone: truncate(String(order?.customer?.phone || "N/A"), 30),
+  };
+}
+
+async function sendWhatsAppTemplate(orderId: string, order: any) {
   const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, OWNER_WHATSAPP } =
     getEnv();
 
@@ -60,17 +112,31 @@ async function sendWhatsAppTemplate() {
     throw new Error("Missing WhatsApp env vars");
   }
 
+  const fields = buildTemplateFields(orderId, order);
+
   const url = `https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-  // Temporary working template.
-  // Replace "hello_world" later with your own approved template.
   const payload = {
     messaging_product: "whatsapp",
     to: ownerTo,
     type: "template",
     template: {
-      name: "hello_world",
-      language: { code: "en_US" },
+      name: "owner_order_alert",
+      language: { code: "en" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: fields.orderId },
+            { type: "text", text: fields.customerName },
+            { type: "text", text: fields.amount },
+            { type: "text", text: fields.courier },
+            { type: "text", text: fields.items },
+            { type: "text", text: fields.address },
+            { type: "text", text: fields.phone },
+          ],
+        },
+      ],
     },
   };
 
@@ -80,6 +146,11 @@ async function sendWhatsAppTemplate() {
     phoneNumberId: WHATSAPP_PHONE_NUMBER_ID,
     ownerWhatsAppRaw: OWNER_WHATSAPP || "",
     ownerWhatsAppSanitized: ownerTo,
+  });
+
+  console.log("[send-order-notification] template name/language:", {
+    name: payload.template.name,
+    language: payload.template.language.code,
   });
 
   console.log(
@@ -303,12 +374,12 @@ export const handler: Handler = async (event) => {
 
     const messagePreview = buildOwnerMessage(orderId, order);
     console.log(
-      "[send-order-notification] Order message preview (not sent directly because template is used):\n" +
+      "[send-order-notification] Order message preview (template values):\n" +
         messagePreview
     );
 
     try {
-      const wa = await sendWhatsAppTemplate();
+      const wa = await sendWhatsAppTemplate(orderId, order);
 
       console.log("[send-order-notification] WhatsApp accepted template:", {
         orderId,
@@ -322,7 +393,7 @@ export const handler: Handler = async (event) => {
         sentTo: wa.sentTo,
         messageId: wa.messageId,
         sentAt,
-        templateUsed: "hello_world",
+        templateUsed: "owner_order_alert",
         whatsappResponse: wa.data || null,
       });
     } catch (waErr: any) {

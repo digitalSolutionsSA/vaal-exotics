@@ -25,6 +25,7 @@ import FAQ from "./pages/FAQ";
 // Admin
 import AdminLogin from "./pages/AdminLogin";
 import AdminProducts from "./pages/AdminProducts";
+import ClientAdminLogin from "./pages/ClientAdminLogin";
 
 // Admin wrappers
 import RequireAdmin from "./components/admin/RequireAdmin";
@@ -44,10 +45,7 @@ function AppShell() {
   const [showLoader, setShowLoader] = useState(false);
 
   const criticalImages = useMemo(
-    () => [
-      homeBg,
-      footerBg,
-    ],
+    () => [homeBg, footerBg],
     []
   );
 
@@ -137,6 +135,7 @@ function AppShell() {
             {/* Admin routes */}
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/client-admin-login" element={<ClientAdminLogin />} />
 
             <Route
               path="/admin/products"

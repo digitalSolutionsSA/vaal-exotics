@@ -8,6 +8,7 @@ type Status = "loading" | "ok" | "no-session" | "not-admin" | "error";
 
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
+  const [currentEmail, setCurrentEmail] = useState("");
   const location = useLocation();
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
         const user = data.session?.user ?? null;
         const email = user?.email?.toLowerCase().trim() ?? "";
 
+        setCurrentEmail(email);
         console.log("[RequireAdmin] session user:", email || null);
 
         if (!user) {
@@ -34,11 +36,27 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
           return;
         }
 
-        if (!ADMIN_EMAILS.includes(email)) {
+        // Allow legacy / owner admin emails immediately
+        if (ADMIN_EMAILS.includes(email)) {
+          setStatus("ok");
+          return;
+        }
+
+        // Allow client admins from the admin_users table
+        const { data: adminUser, error: adminError } = await supabase
+          .from("admin_users")
+          .select("id, email, role, is_active")
+          .eq("id", user.id)
+          .eq("is_active", true)
+          .single();
+
+        if (adminError || !adminUser) {
+          console.warn("[RequireAdmin] admin_users lookup failed or no active admin:", adminError);
           setStatus("not-admin");
           return;
         }
 
+        console.log("[RequireAdmin] admin_users match:", adminUser.email);
         setStatus("ok");
       } catch (e) {
         console.error("[RequireAdmin] unexpected error:", e);
@@ -67,7 +85,9 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
     );
   }
 
-  if (status === "ok") return <>{children}</>;
+  if (status === "ok") {
+    return <>{children}</>;
+  }
 
   if (status === "no-session") {
     return (
@@ -93,8 +113,8 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
       <h1 className="text-xl font-bold text-white">Access denied</h1>
       <p className="mt-2 max-w-md text-white/70">
         You are signed in as{" "}
-        <span className="text-white/90">info@digitalsolutionssa.co.za</span>, but
-        this account is not allowed as an admin in the app guard.
+        <span className="text-white/90">{currentEmail || "unknown user"}</span>, but
+        this account is not allowed as an admin.
       </p>
       <button
         className="mt-5 rounded-lg bg-white/10 px-4 py-2 hover:bg-white/15"
