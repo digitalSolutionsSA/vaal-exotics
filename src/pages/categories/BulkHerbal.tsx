@@ -140,7 +140,7 @@ export default function BulkHerbal() {
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState("name-asc");
 
   const [selectedVariantByProduct, setSelectedVariantByProduct] =
     useState<Record<string, string>>({});
