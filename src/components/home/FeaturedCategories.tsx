@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 import growImg from "../../assets/grow-bg.png";
 import grainImg from "../../assets/grain-bg.png";
+import culturesImg from "../../assets/liquid.png";
+import specialImg from "../../assets/special-bg.png";
 import suppliesImg from "../../assets/supplies-bg.png";
 import medicinalImg from "../../assets/medicinal-bg.png";
 import herbalImg from "../../assets/herbal-bg.png";
@@ -24,18 +26,32 @@ const CATS: Cat[] = [
     image: growImg,
   },
   {
-    title: "Grain & Cultures",
+    title: "Grain",
     subtitle: "Reliable genetics and spawn to level up your grows.",
-    bullets: ["Quality cultures", "Clean grain options", "Consistent results"],
-    to: "/shop/grain-and-cultures",
-    image: suppliesImg,
+    bullets: ["Quality grain", "Clean options", "Consistent results"],
+    to: "/shop/grain",
+    image: grainImg,
+  },
+  {
+    title: "Cultures",
+    subtitle: "Reliable genetics and spawn to level up your grows.",
+    bullets: ["Quality cultures", "Clean genetics", "Consistent results"],
+    to: "/shop/cultures",
+    image: culturesImg,
+  },
+  {
+    title: "Special Offers",
+    subtitle: "Limited deals and discounted products worth grabbing fast.",
+    bullets: ["Best deals", "Limited time", "Save more"],
+    to: "/shop/special-offers",
+    image: specialImg,
   },
   {
     title: "Cultivation Supplies",
     subtitle: "Bags, tools, substrates, and the stuff that actually matters.",
     bullets: ["Grow-ready supplies", "Stock up easily", "Better yields"],
     to: "/shop/cultivation-supplies",
-    image: grainImg,
+    image: suppliesImg,
   },
   {
     title: "Medicinal Supplements",
@@ -56,7 +72,7 @@ const CATS: Cat[] = [
 const GRADIENT =
   "linear-gradient(170deg, #1e2a40 0%, #3c496b 40%, #8b1a1a 75%, #d22c26 100%)";
 
-// ── Heading with fade-down ────────────────────────────────────────────────
+// ── Heading ────────────────────────────────────────────────
 function AnimatedHeading() {
   const ref = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
@@ -104,12 +120,11 @@ function AnimatedHeading() {
   );
 }
 
-// ── Card: click-to-navigate (bulletproof) ─────────────────────────────────
+// ── Card ───────────────────────────────────────────────────
 function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
   const nav = useNavigate();
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // ✅ Always visible. We animate *in* when possible, never hide forever.
   const [inView, setInView] = useState(true);
 
   useEffect(() => {
@@ -167,7 +182,6 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
           sm:group-hover:shadow-[0_22px_70px_rgba(0,0,0,0.35)]
         "
       >
-        {/* Image */}
         <div className="relative w-full overflow-hidden aspect-[16/10] sm:aspect-[4/3]">
           <img
             src={cat.image}
@@ -178,7 +192,6 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
           />
         </div>
 
-        {/* Content */}
         <div className="flex flex-col flex-1 px-3 sm:px-6 pt-3 sm:pt-5 pb-4 sm:pb-7">
           <h3
             className="text-sm sm:text-lg font-extrabold tracking-wide leading-tight bg-clip-text text-transparent"
@@ -193,7 +206,6 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
             {cat.subtitle}
           </p>
 
-          {/* Bullets: hidden on mobile */}
           <ul className="mt-4 space-y-2 flex-1 hidden sm:block">
             {cat.bullets.map((b) => (
               <li
@@ -230,14 +242,14 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
   );
 }
 
-// ── Main export ────────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────
 export default function FeaturedCategories() {
   return (
     <section className="relative w-full pointer-events-auto">
       <div className="w-full px-4 sm:px-10 xl:px-16 py-10 sm:py-20 relative z-10">
         <AnimatedHeading />
 
-        <div className="grid gap-3 sm:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:gap-5 xl:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {CATS.map((cat, i) => (
             <AnimatedCard key={cat.title} cat={cat} delay={i * 140} />
           ))}

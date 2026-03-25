@@ -53,7 +53,8 @@ export default function Navbar() {
   const cartCtx = useCart();
   const cartCount = useMemo(() => computeCartCount(cartCtx), [cartCtx]);
 
-  const mushroomsActive = location.pathname.startsWith("/mushrooms");
+  const mushroomsActive =
+    location.pathname.startsWith("/mushrooms") || location.pathname.startsWith("/shop");
 
   useEffect(() => {
     setMobileOpen(false);
@@ -82,19 +83,16 @@ export default function Navbar() {
       <div className="bg-white border-b border-black/10 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="h-20 flex items-center justify-between gap-4">
-            {/* LEFT: Logo */}
             <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Home">
               <img src={logo} alt="Vaal Exotics" className="h-14 w-auto object-contain" />
               <span className="hidden md:block text-black font-extrabold tracking-widest"></span>
             </Link>
 
-            {/* CENTER NAV */}
             <nav className="hidden lg:flex items-center gap-7 flex-1 justify-center">
               <NavLink to="/" className={navLink}>
                 HOME
               </NavLink>
 
-              {/* MUSHROOMS */}
               <div
                 ref={dropdownRef}
                 className="relative"
@@ -124,11 +122,18 @@ export default function Navbar() {
                           Mushroom Grow Kits
                         </Link>
                         <Link
-                          to="/mushrooms/grain-and-cultures"
+                          to="/shop/grain"
                           className="block px-5 py-3 text-sm text-black/80 hover:text-black hover:bg-black/5"
                           onClick={() => setMushroomsOpen(false)}
                         >
-                          Mushroom Grain & Cultures
+                          Mushroom Grain
+                        </Link>
+                        <Link
+                          to="/shop/cultures"
+                          className="block px-5 py-3 text-sm text-black/80 hover:text-black hover:bg-black/5"
+                          onClick={() => setMushroomsOpen(false)}
+                        >
+                          Mushroom Cultures
                         </Link>
                         <Link
                           to="/mushrooms/cultivation-supplies"
@@ -150,6 +155,10 @@ export default function Navbar() {
                 )}
               </div>
 
+              <NavLink to="/special-offers" className={navLink}>
+                SPECIAL OFFERS
+              </NavLink>
+
               <NavLink to="/bulk-herbal" className={navLink}>
                 BULK HERBAL
               </NavLink>
@@ -164,7 +173,6 @@ export default function Navbar() {
               </NavLink>
             </nav>
 
-            {/* RIGHT ICONS */}
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 to="/cart"
@@ -200,7 +208,6 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* MOBILE MENU */}
           {mobileOpen && (
             <div className="lg:hidden pb-4">
               <div className="mt-2 rounded-2xl border border-black/10 bg-white shadow-lg overflow-hidden">
@@ -209,7 +216,6 @@ export default function Navbar() {
                     HOME
                   </NavLink>
 
-                  {/* MOBILE MUSHROOMS DROPDOWN */}
                   <button
                     type="button"
                     onClick={() => setMobileMushroomsOpen((v) => !v)}
@@ -230,8 +236,11 @@ export default function Navbar() {
                       <NavLink to="/mushrooms/grow-kits" className={navLink}>
                         Grow Kits
                       </NavLink>
-                      <NavLink to="/mushrooms/grain-and-cultures" className={navLink}>
-                        Grain & Cultures
+                      <NavLink to="/shop/grain" className={navLink}>
+                        Grain
+                      </NavLink>
+                      <NavLink to="/shop/cultures" className={navLink}>
+                        Cultures
                       </NavLink>
                       <NavLink to="/mushrooms/cultivation-supplies" className={navLink}>
                         Cultivation Supplies
@@ -241,6 +250,10 @@ export default function Navbar() {
                       </NavLink>
                     </div>
                   )}
+
+                  <NavLink to="/special-offers" className={navLink}>
+                    SPECIAL OFFERS
+                  </NavLink>
 
                   <NavLink to="/bulk-herbal" className={navLink}>
                     BULK HERBAL

@@ -22,6 +22,15 @@ function asFiniteNumber(v: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function sanitizeWhatsAppNumber(value: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function buildShortEftReference() {
+  const stamp = Date.now().toString().slice(-6);
+  return `VE-${stamp}`;
+}
+
 export default function Checkout() {
   const cart = useCart();
   const nav = useNavigate();
@@ -44,16 +53,17 @@ export default function Checkout() {
   const canPay = useMemo(() => {
     if (cart.items.length === 0) return false;
     if (cart.courierBracket === "over-25kg") return false;
-    return (
+
+    return Boolean(
       firstName.trim() &&
-      lastName.trim() &&
-      email.trim() &&
-      phone.trim() &&
-      line1.trim() &&
-      suburb.trim() &&
-      city.trim() &&
-      province.trim() &&
-      postalCode.trim()
+        lastName.trim() &&
+        email.trim() &&
+        phone.trim() &&
+        line1.trim() &&
+        suburb.trim() &&
+        city.trim() &&
+        province.trim() &&
+        postalCode.trim()
     );
   }, [
     cart.items.length,
@@ -68,6 +78,115 @@ export default function Checkout() {
     province,
     postalCode,
   ]);
+
+  function buildPendingPayload(paymentMethod: "yoco" | "eft", eftReference?: string) {
+    return {
+      createdAt: new Date().toISOString(),
+      paymentMethod,
+      eftReference: eftReference || null,
+      totals: {
+        itemsTotal: asFiniteNumber((cart as any).itemsTotal),
+        courierFee: asFiniteNumber((cart as any).courierFee),
+        totalKg: asFiniteNumber((cart as any).totalKg),
+        grandTotal: asFiniteNumber((cart as any).grandTotal),
+      },
+      customer: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+      },
+      address: {
+        line1: line1.trim(),
+        line2: line2.trim(),
+        suburb: suburb.trim(),
+        city: city.trim(),
+        province: province.trim(),
+        postalCode: postalCode.trim(),
+      },
+      items: cart.items,
+    };
+  }
+
+  function buildEftWhatsAppMessage() {
+    const eftReference = buildShortEftReference();
+
+    const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
+    const courierFee = asFiniteNumber((cart as any).courierFee);
+    const totalKg = asFiniteNumber((cart as any).totalKg);
+    const grandTotal = asFiniteNumber((cart as any).grandTotal);
+
+    const itemsLines = cart.items
+      .map((it: any) => {
+        const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
+        const lineTotal = asFiniteNumber(it.price) * qty;
+        return `- ${qty}x ${it.name} - ${formatZAR(lineTotal)}`;
+      })
+      .join("\n");
+
+    const addressLines = [
+      line1.trim(),
+      line2.trim() || null,
+      suburb.trim(),
+      city.trim(),
+      province.trim(),
+      postalCode.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const message = `Hi, I would like to pay via EFT.
+
+Reference: ${eftReference}
+
+Order details:
+${itemsLines}
+
+Items total: ${formatZAR(itemsTotal)}
+Courier: ${formatZAR(courierFee)}
+Total kg: ${totalKg.toFixed(1)}kg
+Grand total: ${formatZAR(grandTotal)}
+
+Customer details:
+Name: ${firstName.trim()} ${lastName.trim()}
+Email: ${email.trim()}
+Phone: ${phone.trim()}
+
+Delivery address:
+${addressLines}
+
+Please send me the EFT banking details / payment instructions.`;
+
+    return { message, eftReference };
+  }
+
+  function startEftCheckout() {
+    setError("");
+
+    if (!canPay || busy) return;
+
+    try {
+      const whatsappNumber = sanitizeWhatsAppNumber(
+        ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as string | undefined) ||
+          "27782166865"
+      );
+
+      if (!whatsappNumber) {
+        throw new Error("WhatsApp number is missing. Please set VITE_VAAL_EXOTICS_WHATSAPP.");
+      }
+
+      const { message, eftReference } = buildEftWhatsAppMessage();
+
+      const pendingPayload = buildPendingPayload("eft", eftReference);
+      sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
+
+      const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      console.error("[Checkout] startEftCheckout error:", e);
+      setError(e?.message || "Failed to open WhatsApp for EFT.");
+    }
+  }
 
   async function startYocoCheckout() {
     setError("");
@@ -133,31 +252,7 @@ export default function Checkout() {
         postalCode: postalCode.trim(),
       };
 
-      const pendingPayload = {
-        createdAt: new Date().toISOString(),
-        totals: {
-          itemsTotal,
-          courierFee,
-          totalKg: asFiniteNumber((cart as any).totalKg),
-          grandTotal,
-        },
-        customer: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-        },
-        address: {
-          line1: line1.trim(),
-          line2: line2.trim(),
-          suburb: suburb.trim(),
-          city: city.trim(),
-          province: province.trim(),
-          postalCode: postalCode.trim(),
-        },
-        items: cart.items,
-      };
-
+      const pendingPayload = buildPendingPayload("yoco");
       sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
 
       const requestBody = {
@@ -220,7 +315,7 @@ export default function Checkout() {
       <div className="mx-auto max-w-4xl px-4 py-10">
         <h1 className="text-3xl font-semibold">Checkout</h1>
         <p className="mt-1 text-sm text-white/70">
-          Secure payment via Yoco Checkout.
+          Secure payment via Yoco Checkout or request EFT via WhatsApp.
         </p>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -357,6 +452,15 @@ export default function Checkout() {
               {busy ? "Redirecting to payment..." : "Pay now"}
             </button>
 
+            <button
+              type="button"
+              disabled={!canPay || busy}
+              onClick={startEftCheckout}
+              className="mt-3 h-11 w-full rounded-lg border border-white/15 bg-white/5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-40"
+            >
+              Pay via EFT
+            </button>
+
             {cart.courierBracket === "over-25kg" ? (
               <p className="mt-3 text-xs text-white/60">
                 Over 25kg orders are not available for checkout. Please contact
@@ -364,9 +468,13 @@ export default function Checkout() {
               </p>
             ) : !canPay ? (
               <p className="mt-3 text-xs text-white/50">
-                Fill in all details to enable payment.
+                Fill in all details to enable payment or EFT request.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-3 text-xs text-white/50">
+                EFT requests open WhatsApp with your customer and order details pre-filled.
+              </p>
+            )}
 
             <button
               type="button"

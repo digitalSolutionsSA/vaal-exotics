@@ -33,7 +33,9 @@ import AdminLayout from "./components/admin/AdminLayout";
 
 // Category pages
 import GrowKits from "./pages/categories/GrowKits";
-import GrainCultures from "./pages/categories/GrainCultures";
+import Grain from "./pages/categories/Grain";
+import Cultures from "./pages/categories/Cultures";
+import SpecialOffers from "./pages/categories/SpecialOffers";
 import CultivationSupplies from "./pages/categories/CultivationSupplies";
 import MedicinalSupplements from "./pages/categories/MedicinalSupplements";
 import BulkHerbal from "./pages/categories/BulkHerbal";
@@ -44,10 +46,7 @@ function AppShell() {
 
   const [showLoader, setShowLoader] = useState(false);
 
-  const criticalImages = useMemo(
-    () => [homeBg, footerBg],
-    []
-  );
+  const criticalImages = useMemo(() => [homeBg, footerBg], []);
 
   const REAPPEAR_COOLDOWN_MS = 30_000;
 
@@ -148,35 +147,57 @@ function AppShell() {
               }
             />
 
-            {/* Category pages (primary) */}
+            {/* Category pages */}
             <Route path="/mushrooms/grow-kits" element={<GrowKits />} />
-            <Route path="/mushrooms/grain-and-cultures" element={<GrainCultures />} />
+            <Route path="/mushrooms/grain" element={<Grain />} />
+            <Route path="/mushrooms/cultures" element={<Cultures />} />
+            <Route path="/mushrooms/special-offers" element={<SpecialOffers />} />
             <Route path="/mushrooms/cultivation-supplies" element={<CultivationSupplies />} />
-            <Route path="/mushrooms/medicinal-supplements" element={<MedicinalSupplements />} />
+            <Route
+              path="/mushrooms/medicinal-supplements"
+              element={<MedicinalSupplements />}
+            />
             <Route path="/bulk-herbal" element={<BulkHerbal />} />
 
-            {/* Compatibility routes (old /shop links) */}
-            <Route path="/shop/growkits" element={<Navigate to="/mushrooms/grow-kits" replace />} />
-            <Route
-              path="/shop/grain-and-cultures"
-              element={<Navigate to="/mushrooms/grain-and-cultures" replace />}
-            />
-            <Route
-              path="/shop/cultivation-supplies"
-              element={<Navigate to="/mushrooms/cultivation-supplies" replace />}
-            />
+            {/* Direct routes */}
+            <Route path="/special-offers" element={<SpecialOffers />} />
+
+            {/* Direct /shop routes for navbar + older links */}
+            <Route path="/shop/growkits" element={<GrowKits />} />
+            <Route path="/shop/grain" element={<Grain />} />
+            <Route path="/shop/cultures" element={<Cultures />} />
+            <Route path="/shop/special-offers" element={<SpecialOffers />} />
+            <Route path="/shop/cultivation-supplies" element={<CultivationSupplies />} />
             <Route
               path="/shop/medicinal-supplements"
-              element={<Navigate to="/mushrooms/medicinal-supplements" replace />}
+              element={<MedicinalSupplements />}
             />
-            <Route path="/shop/bulk-herbal" element={<Navigate to="/bulk-herbal" replace />} />
+            <Route path="/shop/bulk-herbal" element={<BulkHerbal />} />
 
-            {/* Redirect helpers */}
+            {/* Legacy redirects */}
+            <Route
+              path="/mushrooms/grain-and-cultures"
+              element={<Navigate to="/mushrooms/grain" replace />}
+            />
+            <Route
+              path="/shop/grain-and-cultures"
+              element={<Navigate to="/shop/grain" replace />}
+            />
             <Route
               path="/medicinal"
               element={<Navigate to="/mushrooms/medicinal-supplements" replace />}
             />
             <Route path="/herbal" element={<Navigate to="/bulk-herbal" replace />} />
+
+            {/* Optional redirects for old / alternate specials links */}
+            <Route
+              path="/offers"
+              element={<Navigate to="/special-offers" replace />}
+            />
+            <Route
+              path="/specials"
+              element={<Navigate to="/special-offers" replace />}
+            />
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />

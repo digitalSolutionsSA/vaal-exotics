@@ -1,9 +1,10 @@
 // src/lib/category.ts
 
-// ✅ Single source of truth for category strings (use these everywhere)
+// Single source of truth for category strings
 export const CATEGORY = {
   growkits: "Mushroom Grow Kits",
-  grain: "Mushroom Grain & Cultures",
+  grain: "Mushroom Grain",
+  cultures: "Mushroom Cultures",
   supplies: "Mushroom Cultivation Supplies",
   medicinal: "Medicinal Mushroom Supplements",
   bulk: "Bulk Herbal Products",
@@ -12,7 +13,7 @@ export const CATEGORY = {
 export const CATEGORIES = Object.values(CATEGORY);
 export type Category = (typeof CATEGORIES)[number];
 
-// ✅ Normalizer (keep it for search/filter UI)
+// Normalizer
 export function normCategory(input: string) {
   return String(input ?? "")
     .toLowerCase()
@@ -21,7 +22,7 @@ export function normCategory(input: string) {
     .replace(/\s+/g, " ");
 }
 
-// ✅ Map any input (even "and" vs "&") to one of the official categories, if possible
+// Map any input to one of the official categories, if possible
 export function toCategory(input: string): Category | null {
   const n = normCategory(input);
 

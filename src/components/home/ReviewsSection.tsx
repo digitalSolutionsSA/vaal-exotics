@@ -81,7 +81,6 @@ const REVIEWS = [
     initials: "DP",
   },
 
-  // More reviews (so the marquee feels “alive” and continuous)
   {
     name: "Thabo N.",
     location: "Soweto",
@@ -159,7 +158,6 @@ function ReviewPill({ label }: { label: string }) {
   );
 }
 
-/** Brand-tinted “glass” gradient (very light, logo colors) */
 const CARD_BG =
   "linear-gradient(135deg, rgba(210,44,38,0.10) 0%, rgba(47,77,122,0.10) 55%, rgba(255,255,255,0.06) 100%)";
 
@@ -189,7 +187,6 @@ function ReviewCard({
       }}
       aria-label={`Open review by ${r.name}`}
     >
-      {/* Top strip */}
       <div
         className="px-6 pt-5 pb-4"
         style={{
@@ -223,7 +220,6 @@ function ReviewCard({
         </div>
       </div>
 
-      {/* Body */}
       <div className="px-6 pt-5 pb-6">
         <Stars rating={r.rating} />
 
@@ -250,20 +246,12 @@ function ReviewCard({
           <span className="text-xs text-emerald-400 font-semibold">
             Verified purchase
           </span>
-
-          {/* Removed “Tap to read” as requested */}
         </div>
       </div>
     </button>
   );
 }
 
-/**
- * Pixel-perfect marquee:
- * - Measure the first group's width in px (including its internal gap spacing)
- * - Animate translateX by exactly that width
- * This removes % rounding/jumps permanently.
- */
 function useMarqueePx({
   groupRef,
   speedPxPerSec,
@@ -283,7 +271,6 @@ function useMarqueePx({
       const el = groupRef.current;
       if (!el) return;
 
-      // offsetWidth is stable for layout width (and includes padding/borders)
       const w = el.offsetWidth;
       if (!w || !Number.isFinite(w)) return;
 
@@ -399,19 +386,16 @@ function ReviewModal({
   );
 }
 
-/** ── Reviews section (Marquee) ───────────────────────────────────────────── */
 export default function ReviewsSection({
   sectionVisible,
 }: {
   sectionVisible: boolean;
 }) {
-  // Only pause when modal is open.
   const [paused, setPaused] = useState(false);
 
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<(typeof REVIEWS)[number] | null>(null);
 
-  // Group refs (measure width in px)
   const group1Ref = useRef<HTMLDivElement | null>(null);
   const group2Ref = useRef<HTMLDivElement | null>(null);
 
@@ -423,7 +407,7 @@ export default function ReviewsSection({
 
   const m1 = useMarqueePx({
     groupRef: group1Ref,
-    speedPxPerSec: 90, // slightly faster = feels smoother
+    speedPxPerSec: 90,
     enabled: sectionVisible,
   });
 
@@ -447,7 +431,6 @@ export default function ReviewsSection({
 
   return (
     <div className="w-full select-none flex flex-col" style={{ height: "100svh" }}>
-      {/* Heading */}
       <div
         className="flex flex-col items-center justify-end pb-7 flex-shrink-0"
         style={{
@@ -470,7 +453,6 @@ export default function ReviewsSection({
           What Our Customers Say
         </h2>
 
-        {/* Rating line */}
         <div
           className="flex items-center gap-2 mt-4"
           style={{
@@ -481,7 +463,7 @@ export default function ReviewsSection({
           <div className="flex gap-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <svg key={i} className="w-5 h-5" viewBox="0 0 20 20" fill="#d22c26">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a 1 1 0 00.951-.69l1.07-3.292z" />
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
             ))}
           </div>
@@ -489,7 +471,6 @@ export default function ReviewsSection({
           <span className="text-white/65 text-sm">· 200+ verified reviews</span>
         </div>
 
-        {/* This text now ALSO stands out */}
         <p
           className="mt-3 text-xs sm:text-sm text-white/70"
           style={{
@@ -497,11 +478,9 @@ export default function ReviewsSection({
               "0 12px 34px rgba(0,0,0,0.98), 0 2px 10px rgba(0,0,0,0.90)",
           }}
         >
-        
         </p>
       </div>
 
-      {/* Marquee lanes */}
       <div
         className="relative flex-1 w-full"
         style={{
@@ -513,7 +492,6 @@ export default function ReviewsSection({
           transform: sectionVisible ? "translateY(0px)" : "translateY(40px)",
         }}
       >
-        {/* Soft edge fade */}
         <div
           className="absolute inset-0 z-20 pointer-events-none"
           style={{
@@ -528,13 +506,11 @@ export default function ReviewsSection({
           }}
         />
 
-        {/* Lane 1 */}
         <div className="absolute left-0 right-0" style={{ top: "14%" }}>
           <div className="overflow-hidden">
             <div
               className="flex w-max"
               style={{
-                // pixel-based shift
                 ["--shift" as any]: `${m1.shiftPx}px`,
                 animation:
                   sectionVisible && !paused
@@ -545,7 +521,6 @@ export default function ReviewsSection({
                 backfaceVisibility: "hidden",
               }}
             >
-              {/* group */}
               <div ref={group1Ref} className="flex items-stretch gap-4 pr-4">
                 {rowA.map((r, idx) => (
                   <ReviewCard
@@ -556,7 +531,6 @@ export default function ReviewsSection({
                 ))}
               </div>
 
-              {/* duplicate */}
               <div className="flex items-stretch gap-4 pr-4" aria-hidden="true">
                 {rowA.map((r, idx) => (
                   <ReviewCard
@@ -570,7 +544,6 @@ export default function ReviewsSection({
           </div>
         </div>
 
-        {/* Lane 2 (reverse) */}
         <div className="absolute left-0 right-0" style={{ top: "54%" }}>
           <div className="overflow-hidden">
             <div

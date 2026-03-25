@@ -3,11 +3,16 @@ import { supabase } from "../lib/supabase";
 
 const CATEGORIES = [
   "Mushroom Grow Kits",
-  "Mushroom Grain & Cultures",
+  "Mushroom Grain",
+  "Mushroom Cultures",
   "Mushroom Cultivation Supplies",
   "Medicinal Mushroom Supplements",
   "Bulk Herbal Products",
 ];
+
+const LEGACY_CATEGORY_MAP: Record<string, string> = {
+  "mushroom grain and cultures": "Mushroom Grain",
+};
 
 const MAX_IMAGES_PER_PRODUCT = 3;
 const BUCKET = "PRODUCT-IMAGES";
@@ -44,6 +49,12 @@ function normCategory(input: any) {
     .trim()
     .replace(/&/g, "and")
     .replace(/\s+/g, " ");
+}
+
+function resolveCategory(input: any) {
+  const raw = String(input ?? "").trim();
+  const normalized = normCategory(raw);
+  return LEGACY_CATEGORY_MAP[normalized] ?? raw;
 }
 
 function getPublicUrl(path: string) {
@@ -124,6 +135,10 @@ function minVariantPrice(variants: ProductVariant[]): number | null {
   return Math.min(...prices);
 }
 
+function stockCountFromToggle(inStock: boolean) {
+  return inStock ? 1 : 0;
+}
+
 function toInStock(stockCount: number) {
   return Number(stockCount) > 0;
 }
@@ -154,6 +169,73 @@ function formatVariantLabel(v: ProductVariant) {
   return "Variant";
 }
 
+function StockToggle({
+  checked,
+  onChange,
+  label = "Stock status",
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3">
+      <div className="text-sm font-semibold text-black/80">{label}</div>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onChange(!checked)}
+          className={`relative inline-flex h-7 w-14 items-center rounded-full transition ${
+            checked ? "bg-emerald-500" : "bg-neutral-300"
+          }`}
+          aria-pressed={checked}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              checked ? "translate-x-8" : "translate-x-1"
+            }`}
+          />
+        </button>
+
+        <span
+          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+            checked ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
+          }`}
+        >
+          {checked ? "In stock" : "Out of stock"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SpecialToggle({
+  checked,
+  onChange,
+  label = "Special offer",
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label?: string;
+}) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl border border-black/10 bg-neutral-50 px-4 py-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 accent-[#C43A2F]"
+      />
+      <div className="flex flex-col">
+        <span className="text-sm font-semibold text-black/80">{label}</span>
+        <span className="text-xs text-black/60">
+          Tick this and the product can appear on the Special Offers page.
+        </span>
+      </div>
+    </label>
+  );
+}
+
 export default function AdminProducts() {
   const CARD =
     "rounded-2xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.10)]";
@@ -179,7 +261,8 @@ export default function AdminProducts() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [price, setPrice] = useState<string>("");
   const [description, setDescription] = useState("");
-  const [stockCount, setStockCount] = useState<string>("0");
+  const [stockEnabled, setStockEnabled] = useState(true);
+  const [specialEnabled, setSpecialEnabled] = useState(false);
   const [formError, setFormError] = useState<string>("");
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -210,12 +293,15 @@ export default function AdminProducts() {
   const [mCategory, setMCategory] = useState(CATEGORIES[0]);
   const [mPrice, setMPrice] = useState<string>("");
   const [mDescription, setMDescription] = useState("");
-  const [mStock, setMStock] = useState<string>("0");
+  const [mInStock, setMInStock] = useState(true);
+  const [mSpecial, setMSpecial] = useState(false);
   const [mVariants, setMVariants] = useState<ProductVariant[]>([]);
   const [mImages, setMImages] = useState<string[]>([]);
   const [mError, setMError] = useState<string>("");
 
-  const isInStock = (p: any) => Number(p?.stock_count ?? 0) > 0;
+  const isInStock = (p: any) => Number(p?.stock_count ?? 0) > 0 || Boolean(p?.in_stock);
+  const isSpecialProduct = (p: any) =>
+    Boolean(p?.special ?? p?.is_special ?? p?.special_offer ?? false);
 
   const openProduct = useMemo(() => {
     if (!openProductId) return null;
@@ -228,7 +314,9 @@ export default function AdminProducts() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id,name,category,price,description,in_stock,stock_count,images,variants,created_at")
+      .select(
+        "id,name,category,price,description,in_stock,stock_count,special,images,variants,created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -261,10 +349,11 @@ export default function AdminProducts() {
     if (!openProduct) return;
     setMError("");
     setMName(String(openProduct.name ?? ""));
-    setMCategory(String(openProduct.category ?? CATEGORIES[0]));
+    setMCategory(resolveCategory(openProduct.category || CATEGORIES[0]));
     setMPrice(openProduct.price != null ? String(openProduct.price) : "");
     setMDescription(String(openProduct.description ?? ""));
-    setMStock(String(Number(openProduct.stock_count ?? 0)));
+    setMInStock(isInStock(openProduct));
+    setMSpecial(isSpecialProduct(openProduct));
     setMVariants(normalizeVariants(openProduct.variants));
     setMImages(Array.isArray(openProduct.images) ? openProduct.images : []);
   }, [openProductId, openProduct]);
@@ -274,12 +363,15 @@ export default function AdminProducts() {
     const wanted = normCategory(brandFilter);
 
     return (products as any[]).filter((p: any) => {
+      const productCategory = resolveCategory(p.category);
+
       if (brandFilter !== "All") {
-        if (normCategory(p.category) !== wanted) return false;
+        if (normCategory(productCategory) !== wanted) return false;
       }
 
       if (query) {
-        const hay = `${p.name ?? ""} ${p.category ?? ""} ${p.description ?? ""}`.toLowerCase();
+        const hay =
+          `${p.name ?? ""} ${productCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
         if (!hay.includes(query)) return false;
       }
 
@@ -381,11 +473,7 @@ export default function AdminProducts() {
       return;
     }
 
-    const sc = Number(stockCount);
-    if (!Number.isFinite(sc) || sc < 0) {
-      setFormError("Stock count must be a number (0 or more).");
-      return;
-    }
+    const stockCount = stockCountFromToggle(stockEnabled);
 
     setBusy(true);
     try {
@@ -394,8 +482,9 @@ export default function AdminProducts() {
         category,
         price: finalBasePrice,
         description: description.trim(),
-        stock_count: Math.floor(sc),
-        in_stock: toInStock(sc),
+        stock_count: stockCount,
+        in_stock: toInStock(stockCount),
+        special: specialEnabled,
         images: [],
         variants: normalizedVariants,
       });
@@ -412,7 +501,8 @@ export default function AdminProducts() {
       setPrice("");
       setCategory(CATEGORIES[0]);
       setDescription("");
-      setStockCount("0");
+      setStockEnabled(true);
+      setSpecialEnabled(false);
       setNewFiles([]);
       setVariants([]);
       setVName("");
@@ -492,12 +582,6 @@ export default function AdminProducts() {
       return;
     }
 
-    const stockNum = Number(mStock);
-    if (!Number.isFinite(stockNum) || stockNum < 0) {
-      setMError("Stock count must be a number (0 or more).");
-      return;
-    }
-
     const cleanVariants = normalizeVariants(mVariants);
     const derived = minVariantPrice(cleanVariants);
     const baseFromInput = parseZar(mPrice);
@@ -509,14 +593,17 @@ export default function AdminProducts() {
       return;
     }
 
+    const stockCount = stockCountFromToggle(mInStock);
+
     setBusy(true);
     try {
       await updateProduct(openProductId, {
         name: trimmed,
         category: mCategory,
         description: mDescription.trim(),
-        stock_count: Math.floor(stockNum),
-        in_stock: toInStock(stockNum),
+        stock_count: stockCount,
+        in_stock: toInStock(stockCount),
+        special: mSpecial,
         variants: cleanVariants,
         price: finalPrice,
         images: mImages,
@@ -625,7 +712,6 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-6 text-black">
-      {/* Top row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className={CARD}>
           <div className="text-sm font-semibold text-black/70">Products</div>
@@ -657,7 +743,6 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* Add product */}
       <div className={CARD}>
         <div className={TITLE}>Add product</div>
         <p className="mt-1 text-sm text-black/60">
@@ -698,13 +783,14 @@ export default function AdminProducts() {
               placeholder="Base price (optional if using variants)"
               className={`${INPUT} sm:col-span-2`}
             />
-            <input
-              value={stockCount}
-              onChange={(e) => setStockCount(e.target.value)}
-              placeholder="Stock count"
-              className={INPUT}
+            <StockToggle
+              checked={stockEnabled}
+              onChange={setStockEnabled}
+              label="Stock status"
             />
           </div>
+
+          <SpecialToggle checked={specialEnabled} onChange={setSpecialEnabled} label="Special" />
 
           <textarea
             value={description}
@@ -804,7 +890,6 @@ export default function AdminProducts() {
         </form>
       </div>
 
-      {/* Product list */}
       <div className={CARD}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -854,6 +939,9 @@ export default function AdminProducts() {
           <div className="grid gap-2">
             {filtered.map((p: any) => {
               const inStock = isInStock(p);
+              const displayCategory = resolveCategory(p.category);
+              const isSpecial = isSpecialProduct(p);
+
               return (
                 <button
                   key={p.id}
@@ -864,16 +952,24 @@ export default function AdminProducts() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-extrabold text-black">{p.name}</div>
-                      <div className="mt-1 truncate text-xs text-black/60">{p.category}</div>
+                      <div className="mt-1 truncate text-xs text-black/60">{displayCategory}</div>
                     </div>
 
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
-                        inStock ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
-                      }`}
-                    >
-                      {inStock ? "In stock" : "No stock"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {isSpecial && (
+                        <span className="inline-flex rounded-full bg-[#C43A2F]/10 px-2 py-1 text-[11px] font-semibold text-[#C43A2F]">
+                          Special
+                        </span>
+                      )}
+
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
+                          inStock ? "bg-emerald-500/15 text-emerald-900" : "bg-red-500/15 text-red-900"
+                        }`}
+                      >
+                        {inStock ? "In stock" : "No stock"}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
@@ -888,7 +984,6 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* Edit modal */}
       {openProductId && openProduct && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -939,13 +1034,14 @@ export default function AdminProducts() {
                     placeholder="Base price (or leave if variants)"
                     className={`${INPUT} sm:col-span-2`}
                   />
-                  <input
-                    value={mStock}
-                    onChange={(e) => setMStock(e.target.value)}
-                    placeholder="Stock count"
-                    className={INPUT}
+                  <StockToggle
+                    checked={mInStock}
+                    onChange={setMInStock}
+                    label="Stock status"
                   />
                 </div>
+
+                <SpecialToggle checked={mSpecial} onChange={setMSpecial} label="Special" />
 
                 <textarea
                   value={mDescription}
@@ -1069,7 +1165,6 @@ export default function AdminProducts() {
         </div>
       )}
 
-      {/* FAQs */}
       <div className={CARD}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>

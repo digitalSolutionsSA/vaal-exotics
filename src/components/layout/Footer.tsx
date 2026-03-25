@@ -215,7 +215,10 @@ export default function Footer() {
                     </Link>
                   </li>
                   <li>
-                    <Link className={`${GRADIENT_TEXT} hover:opacity-80 transition`} to="/bulk-herbal">
+                    <Link
+                      className={`${GRADIENT_TEXT} hover:opacity-80 transition`}
+                      to="/bulk-herbal"
+                    >
                       Bulk Herbal
                     </Link>
                   </li>
@@ -241,7 +244,10 @@ export default function Footer() {
                     </Link>
                   </li>
                   <li>
-                    <Link className={`${GRADIENT_TEXT} hover:opacity-80 transition`} to="/disclaimer">
+                    <Link
+                      className={`${GRADIENT_TEXT} hover:opacity-80 transition`}
+                      to="/disclaimer"
+                    >
                       Disclaimer
                     </Link>
                   </li>
@@ -289,13 +295,9 @@ export default function Footer() {
             {/* Bottom bar */}
             <div className="pt-3 pb-2">
               <div className="flex flex-col gap-2 sm:gap-4 sm:flex-row sm:items-center sm:justify-between text-[11px] sm:text-xs">
-                <p className={`${GRADIENT_TEXT} opacity-70`}>
-                  © {new Date().getFullYear()} Vaal Exotics. All rights reserved.
-                </p>
-
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <p className={`${GRADIENT_TEXT} opacity-70`}>
-                    Proudly developed by Digital Solutions SA.
+                    © {new Date().getFullYear()} Vaal Exotics. All rights reserved.
                   </p>
 
                   <Link
@@ -306,6 +308,10 @@ export default function Footer() {
                     ADMIN
                   </Link>
                 </div>
+
+                <p className={`${GRADIENT_TEXT} opacity-70`}>
+                  Proudly developed by Digital Solutions SA.
+                </p>
               </div>
             </div>
           </div>
