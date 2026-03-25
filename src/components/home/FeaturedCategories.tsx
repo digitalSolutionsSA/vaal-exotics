@@ -30,7 +30,7 @@ const CATS: Cat[] = [
     subtitle: "Reliable genetics and spawn to level up your grows.",
     bullets: ["Quality grain", "Clean options", "Consistent results"],
     to: "/shop/grain",
-    image: grainImg,
+    image: suppliesImg,
   },
   {
     title: "Cultures",
@@ -51,7 +51,7 @@ const CATS: Cat[] = [
     subtitle: "Bags, tools, substrates, and the stuff that actually matters.",
     bullets: ["Grow-ready supplies", "Stock up easily", "Better yields"],
     to: "/shop/cultivation-supplies",
-    image: suppliesImg,
+    image: grainImg,
   },
   {
     title: "Medicinal Supplements",

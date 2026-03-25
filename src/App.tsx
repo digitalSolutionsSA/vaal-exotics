@@ -205,9 +205,11 @@ function AppShell() {
         </div>
       </div>
 
-      <div className="relative z-40">
-        <Footer />
-      </div>
+      {!isHome && (
+        <div className="relative z-40">
+          <Footer />
+        </div>
+      )}
 
       <CookieConsent />
 
