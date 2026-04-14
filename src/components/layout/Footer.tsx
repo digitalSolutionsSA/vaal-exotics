@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import footerCover from "../../assets/footer-cover.png";
 import footerBg from "../../assets/footer-bg.png";
 
@@ -18,12 +18,6 @@ export default function Footer() {
   );
   const [message, setMessage] = useState("");
 
-  const webhookUrl = useMemo(() => {
-    return (import.meta as any)?.env?.VITE_NEWSLETTER_WEBHOOK_URL as
-      | string
-      | undefined;
-  }, []);
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = email.trim();
@@ -38,14 +32,7 @@ export default function Footer() {
     setMessage("");
 
     try {
-      if (!webhookUrl) {
-        setStatus("success");
-        setMessage("You're in. Watch your inbox for updates.");
-        setEmail("");
-        return;
-      }
-
-      const res = await fetch(webhookUrl, {
+      const res = await fetch("/.netlify/functions/subscribe-mailing-list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -55,7 +42,11 @@ export default function Footer() {
         }),
       });
 
-      if (!res.ok) throw new Error("Request failed");
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Request failed");
+      }
 
       setStatus("success");
       setMessage("You're in. Watch your inbox for updates.");

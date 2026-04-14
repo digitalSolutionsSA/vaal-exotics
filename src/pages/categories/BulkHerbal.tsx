@@ -48,6 +48,13 @@ type EnquiryCartItem = {
   basePrice: number;
 };
 
+type TransformOptions = {
+  width: number;
+  height: number;
+  quality?: number;
+  resize?: "cover" | "contain" | "fill";
+};
+
 function formatZar(value: any) {
   const n = Number(value);
   return Number.isFinite(n) ? `R${n.toFixed(2)}` : "R0.00";
@@ -71,11 +78,6 @@ function getImages(p: ShopProduct) {
   const imgs = safeArray<string>(p.images).filter(Boolean);
   if (imgs.length) return imgs;
   return p.image_url ? [p.image_url] : [];
-}
-
-function getBestImage(p: ShopProduct) {
-  const imgs = getImages(p);
-  return imgs?.[0] || "";
 }
 
 function normalizeVariants(p: ShopProduct): ProductVariant[] {
@@ -133,6 +135,80 @@ function buildWhatsappUrl(numberRaw: string, message: string) {
   const waNumber = number.replace("+", "");
   const encoded = encodeURIComponent(message);
   return `https://wa.me/${waNumber}?text=${encoded}`;
+}
+
+/**
+ * Converts an existing Supabase public storage URL into a transformed render URL.
+ * Falls back to the original src if it can't safely parse it.
+ *
+ * This means you do NOT need to re-upload images, because it still uses the same
+ * files already sitting in Supabase Storage. Humanity occasionally stumbles into efficiency.
+ */
+function toSupabaseRenderUrl(src: string, options: TransformOptions) {
+  if (!src) return "";
+
+  const trimmed = src.trim();
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(trimmed);
+
+    const marker = "/storage/v1/object/public/";
+    const idx = url.pathname.indexOf(marker);
+
+    if (idx === -1) {
+      return trimmed;
+    }
+
+    const remainder = url.pathname.slice(idx + marker.length);
+    const slashIndex = remainder.indexOf("/");
+
+    if (slashIndex === -1) {
+      return trimmed;
+    }
+
+    const bucket = remainder.slice(0, slashIndex);
+    const objectPath = remainder.slice(slashIndex + 1);
+
+    if (!bucket || !objectPath) {
+      return trimmed;
+    }
+
+    const params = new URLSearchParams();
+    params.set("width", String(options.width));
+    params.set("height", String(options.height));
+    params.set("quality", String(options.quality ?? 70));
+    params.set("resize", options.resize ?? "cover");
+
+    return `${url.origin}/storage/v1/render/image/public/${bucket}/${objectPath}?${params.toString()}`;
+  } catch {
+    return trimmed;
+  }
+}
+
+function getOptimizedImages(
+  p: ShopProduct,
+  options: TransformOptions = {
+    width: 700,
+    height: 700,
+    quality: 70,
+    resize: "contain",
+  }
+) {
+  return getImages(p).map((img) => toSupabaseRenderUrl(img, options));
+}
+
+function getBestImage(
+  p: ShopProduct,
+  options: TransformOptions = {
+    width: 700,
+    height: 700,
+    quality: 70,
+    resize: "contain",
+  }
+) {
+  const imgs = getOptimizedImages(p, options);
+  return imgs?.[0] || "";
 }
 
 export default function BulkHerbal() {
@@ -228,7 +304,7 @@ export default function BulkHerbal() {
           return getDisplayPrice(b) - getDisplayPrice(a);
 
         case "name-asc":
-          return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+          return String(a.name ?? "").localeCompare(String(a.name ?? ""));
 
         case "name-desc":
           return String(b.name ?? "").localeCompare(String(a.name ?? ""));
@@ -350,7 +426,15 @@ export default function BulkHerbal() {
   const quickViewPrice = quickViewProduct
     ? quickViewSelectedVariant?.price ?? Number(quickViewProduct.price ?? 0)
     : 0;
-  const quickViewImages = quickViewProduct ? getImages(quickViewProduct) : [];
+
+  const quickViewImages = quickViewProduct
+    ? getOptimizedImages(quickViewProduct, {
+        width: 1200,
+        height: 1200,
+        quality: 75,
+        resize: "contain",
+      })
+    : [];
 
   return (
     <main className="relative min-h-screen text-black">
@@ -433,15 +517,21 @@ export default function BulkHerbal() {
             mt-6
             grid
             gap-2 sm:gap-3 lg:gap-3
-            [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))]
-            sm:[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]
-            md:[grid-template-columns:repeat(auto-fill,minmax(175px,1fr))]
-            lg:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]
-            xl:[grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]
+            [grid-template-columns:repeat(auto-fill,minmax(145px,1fr))]
+            sm:[grid-template-columns:repeat(auto-fill,minmax(170px,1fr))]
+            md:[grid-template-columns:repeat(auto-fill,minmax(185px,1fr))]
+            lg:[grid-template-columns:repeat(auto-fill,minmax(195px,1fr))]
+            xl:[grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]
           "
         >
-          {filteredProducts.map((p) => {
-            const img = getBestImage(p);
+          {filteredProducts.map((p, index) => {
+            const img = getBestImage(p, {
+              width: 700,
+              height: 700,
+              quality: 70,
+              resize: "contain",
+            });
+
             const variants = normalizeVariants(p);
             const selectedId = selectedVariantByProduct[p.id];
             const selectedVariant =
@@ -463,25 +553,31 @@ export default function BulkHerbal() {
                   overflow-hidden
                   flex flex-col
                   h-full
+                  min-w-0
                 "
               >
                 <button
                   type="button"
                   onClick={() => openQuickView(p)}
-                  className="aspect-[4/3] bg-black/5 border-b border-black/10 block text-left"
+                  className="block text-left border-b border-black/10 bg-white"
                 >
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={p.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs text-black/40">
-                      No image
-                    </div>
-                  )}
+                  <div className="aspect-square sm:aspect-[4/3] w-full bg-white p-2 sm:p-3">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="w-full h-full object-contain"
+                        loading={index < 4 ? "eager" : "lazy"}
+                        fetchPriority={index < 4 ? "high" : "auto"}
+                        decoding="async"
+                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 28vw, 220px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-black/40">
+                        No image
+                      </div>
+                    )}
+                  </div>
                 </button>
 
                 <div
@@ -491,6 +587,7 @@ export default function BulkHerbal() {
                     grid
                     grid-rows-[auto_auto_auto_auto_1fr_auto]
                     gap-2
+                    min-w-0
                   "
                 >
                   <button
@@ -656,12 +753,15 @@ export default function BulkHerbal() {
 
               <div className="grid max-h-[92vh] grid-cols-1 md:grid-cols-[1.05fr_0.95fr]">
                 <div className="border-b md:border-b-0 md:border-r border-black/10 bg-[#f7f7f7]">
-                  <div className="aspect-square w-full bg-white">
+                  <div className="aspect-square w-full bg-white p-3 sm:p-4">
                     {quickViewImages[quickViewImage] ? (
                       <img
                         src={quickViewImages[quickViewImage]}
                         alt={quickViewProduct.name}
                         className="h-full w-full object-contain"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-sm text-black/40">
@@ -677,14 +777,16 @@ export default function BulkHerbal() {
                           key={`${image}-${index}`}
                           type="button"
                           onClick={() => setQuickViewImage(index)}
-                          className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border ${
+                          className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
                             quickViewImage === index ? "border-black" : "border-black/10"
                           }`}
                         >
                           <img
                             src={image}
                             alt={`${quickViewProduct.name} ${index + 1}`}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
+                            loading="lazy"
+                            decoding="async"
                           />
                         </button>
                       ))}
