@@ -3,16 +3,22 @@ import Hero from "../components/layout/Hero";
 import FeaturedCategories from "../components/home/FeaturedCategories";
 import ReviewsSection from "../components/home/ReviewsSection";
 import Footer from "../components/layout/Footer";
-import webBg from "../assets/web-bg.png";
 
 export default function Home() {
   useEffect(() => {
-    // Make sure native scrolling is enabled (in case older code disabled it)
+    // Enable scrolling
     const prevHtmlOverflow = document.documentElement.style.overflowY;
     const prevBodyOverflow = document.body.style.overflowY;
 
     document.documentElement.style.overflowY = "auto";
     document.body.style.overflowY = "auto";
+
+    // 🔥 Preload background image for near-instant render
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = "/web-bg.webp";
+    document.head.appendChild(link);
 
     return () => {
       document.documentElement.style.overflowY = prevHtmlOverflow;
@@ -22,27 +28,28 @@ export default function Home() {
 
   return (
     <main className="text-white">
-      {/* ✅ ONE shared background for the entire Home page */}
+      {/* Background */}
       <div className="fixed inset-0 -z-10">
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `url(${webBg})`,
+            backgroundImage: `url('/web-bg.webp')`, // ✅ direct load
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
-            // "fixed" effect (safe because the layer itself is fixed)
-            backgroundAttachment: "fixed",
+            // ❌ REMOVE THIS (kills performance especially on mobile)
+            // backgroundAttachment: "fixed",
           }}
         />
-        {/* Optional overlay so text stays readable */}
+
+        {/* Overlay */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ background: "rgba(0,0,0,0.45)" }}
         />
       </div>
 
-      {/* ✅ Scroll container must be TRANSPARENT so it doesn't hide the bg */}
+      {/* Scroll container */}
       <div
         className="h-[100svh] overflow-y-auto snap-y snap-mandatory"
         style={{
@@ -51,7 +58,6 @@ export default function Home() {
           background: "transparent",
         }}
       >
-        {/* Every section also stays transparent */}
         <section className="snap-start min-h-[100svh] bg-transparent">
           <Hero />
         </section>
