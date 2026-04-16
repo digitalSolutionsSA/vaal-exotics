@@ -1,62 +1,14 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
 import footerCover from "../../assets/footer-cover.png";
 import footerBg from "../../assets/footer-bg.png";
-
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
 
 // Logo gradient (blue -> red)
 const GRADIENT_TEXT =
   "bg-clip-text text-transparent bg-gradient-to-r from-[#2F4D7A] to-[#C43A2F]";
 
+const WHATSAPP_CHANNEL_URL = "https://whatsapp.com/channel/0029VbC9Hy9KWEKv1KGnPc10";
+
 export default function Footer() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
-    "idle"
-  );
-  const [message, setMessage] = useState("");
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = email.trim();
-
-    if (!isValidEmail(clean)) {
-      setStatus("error");
-      setMessage("Please enter a valid email address.");
-      return;
-    }
-
-    setStatus("loading");
-    setMessage("");
-
-    try {
-      const res = await fetch("/.netlify/functions/subscribe-mailing-list", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: clean,
-          source: "footer",
-          createdAt: new Date().toISOString(),
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Request failed");
-      }
-
-      setStatus("success");
-      setMessage("You're in. Watch your inbox for updates.");
-      setEmail("");
-    } catch {
-      setStatus("error");
-      setMessage("Couldn’t subscribe right now. Try again in a minute.");
-    }
-  };
-
   return (
     <footer
       className="w-full"
@@ -72,12 +24,12 @@ export default function Footer() {
         <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-10 xl:px-16 min-h-0 sm:min-h-[100svh] flex flex-col pb-6 sm:pb-10">
           {/* Top content */}
           <div className="pt-10 sm:pt-32">
-            {/* Mailing list */}
+            {/* WhatsApp channel */}
             <div className="max-w-2xl">
               <p
                 className={`uppercase tracking-[0.22em] text-[10px] font-semibold ${GRADIENT_TEXT}`}
               >
-                Mailing list
+                WhatsApp Channel
               </p>
 
               <h2
@@ -95,59 +47,25 @@ export default function Footer() {
                 nonsense.
               </p>
 
-              <form onSubmit={onSubmit} className="mt-4 sm:mt-6">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (status !== "idle") {
-                        setStatus("idle");
-                        setMessage("");
-                      }
-                    }}
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    placeholder="Enter your email"
-                    className="w-full sm:flex-1 rounded-2xl bg-white border border-black/15 px-4 py-3 text-black
-                               placeholder:text-black/35 outline-none focus:border-black/30 transition"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={status === "loading"}
-                    className="rounded-2xl px-6 py-3 font-extrabold uppercase tracking-wider text-sm transition
-                               text-white disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, rgba(47,77,122,1) 0%, rgba(196,58,47,1) 100%)",
-                      boxShadow: "0 14px 34px rgba(0,0,0,0.12)",
-                    }}
-                  >
-                    {status === "loading" ? "Subscribing..." : "Subscribe"}
-                  </button>
-                </div>
+              <div className="mt-4 sm:mt-6">
+                <a
+                  href={WHATSAPP_CHANNEL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl px-6 py-3 font-extrabold uppercase tracking-wider text-sm transition text-white active:scale-[0.98]"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(47,77,122,1) 0%, rgba(196,58,47,1) 100%)",
+                    boxShadow: "0 14px 34px rgba(0,0,0,0.12)",
+                  }}
+                >
+                  Join Channel
+                </a>
 
                 <p className={`mt-2 text-[10px] ${GRADIENT_TEXT} opacity-70`}>
-                  By subscribing, you agree to receive occasional marketing emails from Vaal
-                  Exotics. Unsubscribe anytime.
+                  Tap here to join the Vaal Exotics WhatsApp channel for updates and specials.
                 </p>
-
-                {message ? (
-                  <p
-                    className="mt-2 text-sm"
-                    style={{
-                      color:
-                        status === "error"
-                          ? "rgba(196,58,47,0.95)"
-                          : "rgba(47,77,122,0.95)",
-                    }}
-                  >
-                    {message}
-                  </p>
-                ) : null}
-              </form>
+              </div>
             </div>
 
             {/* Link grid */}

@@ -304,7 +304,7 @@ export default function BulkHerbal() {
           return getDisplayPrice(b) - getDisplayPrice(a);
 
         case "name-asc":
-          return String(a.name ?? "").localeCompare(String(a.name ?? ""));
+          return String(a.name ?? "").localeCompare(String(b.name ?? ""));
 
         case "name-desc":
           return String(b.name ?? "").localeCompare(String(a.name ?? ""));

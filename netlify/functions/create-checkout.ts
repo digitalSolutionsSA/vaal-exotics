@@ -96,7 +96,30 @@ function json(statusCode: number, body: Record<string, unknown>) {
 
 function normalizeBaseUrl() {
   const { APP_URL, URL, DEPLOY_URL } = getEnv();
-  return String(APP_URL || URL || DEPLOY_URL || "http://localhost:8888").replace(/\/+$/, "");
+  let baseUrl = String(
+    APP_URL || URL || DEPLOY_URL || "http://localhost:8888"
+  ).trim();
+
+  baseUrl = baseUrl.replace(/\/+$/, "");
+
+  // Never use https on localhost during local dev
+  if (
+    baseUrl.startsWith("https://localhost") ||
+    baseUrl.startsWith("https://127.0.0.1")
+  ) {
+    baseUrl = baseUrl.replace(/^https:/i, "http:");
+  }
+
+  return baseUrl;
+}
+
+function getCheckoutRedirectUrl(yocoJson: any) {
+  return (
+    yocoJson?.redirectUrl ??
+    yocoJson?.redirect_url ??
+    yocoJson?.url ??
+    null
+  );
 }
 
 export const handler: Handler = async (event) => {
@@ -326,22 +349,43 @@ export const handler: Handler = async (event) => {
       });
     }
 
+    const redirectUrl = getCheckoutRedirectUrl(yocoJson);
+
     await supabase
       .from("orders")
       .update({
+        status: "checkout_created",
         yoco_checkout_id: yocoJson?.id ?? null,
-        yoco_checkout_url: yocoJson?.redirectUrl ?? null,
+        yoco_checkout_url: redirectUrl,
       })
       .eq("id", orderId);
 
     return json(200, {
       ok: true,
       orderId,
-      redirectUrl: yocoJson?.redirectUrl ?? null,
+      redirectUrl,
     });
   } catch (e: any) {
     console.error("[create-checkout] fatal error:", e);
     console.error("[create-checkout] fatal stack:", e?.stack);
+
+    if (orderId) {
+      try {
+        const env = getEnv();
+        const supabase = createClient(
+          env.SUPABASE_URL!,
+          env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { persistSession: false } }
+        );
+
+        await supabase
+          .from("orders")
+          .update({ status: "checkout_create_failed" })
+          .eq("id", orderId);
+      } catch {
+        // ignore secondary failure
+      }
+    }
 
     return json(500, {
       error: e?.message || "Server error",
