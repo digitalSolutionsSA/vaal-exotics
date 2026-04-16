@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import growImg from "../../assets/grow-bg.png";
-import grainImg from "../../assets/grain-bg.png";
-import culturesImg from "../../assets/liquid.png";
-import specialImg from "../../assets/special-bg.png";
-import suppliesImg from "../../assets/supplies-bg.png";
-import medicinalImg from "../../assets/medicinal-bg.png";
-import herbalImg from "../../assets/herbal-bg.png";
+const growImg = "/categories/grow-bg.webp";
+const grainImg = "/categories/grain-bg.webp";
+const culturesImg = "/categories/liquid.webp";
+const specialImg = "/categories/special-bg.webp";
+const suppliesImg = "/categories/supplies-bg.webp";
+const medicinalImg = "/categories/medicinal-bg.webp";
+const herbalImg = "/categories/herbal-bg.webp";
 
 type Cat = {
   title: string;
@@ -188,6 +188,7 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
             alt={cat.title}
             className="h-full w-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105"
             loading="lazy"
+            decoding="async"
             draggable={false}
           />
         </div>
