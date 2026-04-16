@@ -3,20 +3,6 @@ import { formatZAR } from "../lib/money";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-function toCents(amountZar: number) {
-  // Handles floating point safely enough for ZAR amounts in UI
-  const n = Number(amountZar);
-  return Number.isFinite(n) ? Math.round(n * 100) : 0;
-}
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
 function asFiniteNumber(v: any, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -26,7 +12,7 @@ function sanitizeWhatsAppNumber(value: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
-function buildShortEftReference() {
+function buildShortOrderReference() {
   const stamp = Date.now().toString().slice(-6);
   return `VE-${stamp}`;
 }
@@ -49,8 +35,9 @@ export default function Checkout() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const canPay = useMemo(() => {
+  const canCompleteOrder = useMemo(() => {
     if (cart.items.length === 0) return false;
     if (cart.courierBracket === "over-25kg") return false;
 
@@ -79,16 +66,34 @@ export default function Checkout() {
     postalCode,
   ]);
 
-  function buildPendingPayload(paymentMethod: "yoco" | "eft", eftReference?: string) {
+  function getOrderData(reference?: string) {
+    const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
+    const courierFee = asFiniteNumber((cart as any).courierFee);
+    const totalKg = asFiniteNumber((cart as any).totalKg);
+    const grandTotal = asFiniteNumber((cart as any).grandTotal);
+
+    const orderReference = reference || buildShortOrderReference();
+
+    const items = cart.items.map((it: any) => {
+      const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
+      const price = asFiniteNumber(it.price);
+
+      return {
+        id: it.id,
+        name: it.name,
+        qty,
+        price,
+        lineTotal: price * qty,
+      };
+    });
+
     return {
-      createdAt: new Date().toISOString(),
-      paymentMethod,
-      eftReference: eftReference || null,
+      reference: orderReference,
       totals: {
-        itemsTotal: asFiniteNumber((cart as any).itemsTotal),
-        courierFee: asFiniteNumber((cart as any).courierFee),
-        totalKg: asFiniteNumber((cart as any).totalKg),
-        grandTotal: asFiniteNumber((cart as any).grandTotal),
+        itemsTotal,
+        courierFee,
+        totalKg,
+        grandTotal,
       },
       customer: {
         firstName: firstName.trim(),
@@ -104,207 +109,128 @@ export default function Checkout() {
         province: province.trim(),
         postalCode: postalCode.trim(),
       },
-      items: cart.items,
+      items,
     };
   }
 
-  function buildEftWhatsAppMessage() {
-    const eftReference = buildShortEftReference();
+  function buildPendingPayload(reference?: string) {
+    const order = getOrderData(reference);
 
-    const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
-    const courierFee = asFiniteNumber((cart as any).courierFee);
-    const totalKg = asFiniteNumber((cart as any).totalKg);
-    const grandTotal = asFiniteNumber((cart as any).grandTotal);
+    return {
+      createdAt: new Date().toISOString(),
+      paymentMethod: "eft",
+      eftReference: order.reference,
+      totals: order.totals,
+      customer: order.customer,
+      address: order.address,
+      items: order.items,
+    };
+  }
 
-    const itemsLines = cart.items
-      .map((it: any) => {
-        const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
-        const lineTotal = asFiniteNumber(it.price) * qty;
-        return `- ${qty}x ${it.name} - ${formatZAR(lineTotal)}`;
-      })
+  function buildWhatsAppMessage(reference?: string) {
+    const order = getOrderData(reference);
+
+    const itemsLines = order.items
+      .map((it) => `- ${it.qty}x ${it.name} - ${formatZAR(it.lineTotal)}`)
       .join("\n");
 
     const addressLines = [
-      line1.trim(),
-      line2.trim() || null,
-      suburb.trim(),
-      city.trim(),
-      province.trim(),
-      postalCode.trim(),
+      order.address.line1,
+      order.address.line2 || null,
+      order.address.suburb,
+      order.address.city,
+      order.address.province,
+      order.address.postalCode,
     ]
       .filter(Boolean)
       .join("\n");
 
-    const message = `Hi, I would like to pay via EFT.
+    return `Hi, I would like to place an order.
 
-Reference: ${eftReference}
+Reference: ${order.reference}
 
 Order details:
 ${itemsLines}
 
-Items total: ${formatZAR(itemsTotal)}
-Courier: ${formatZAR(courierFee)}
-Total kg: ${totalKg.toFixed(1)}kg
-Grand total: ${formatZAR(grandTotal)}
+Items total: ${formatZAR(order.totals.itemsTotal)}
+Courier: ${formatZAR(order.totals.courierFee)}
+Total kg: ${order.totals.totalKg.toFixed(1)}kg
+Grand total: ${formatZAR(order.totals.grandTotal)}
 
 Customer details:
-Name: ${firstName.trim()} ${lastName.trim()}
-Email: ${email.trim()}
-Phone: ${phone.trim()}
+Name: ${order.customer.firstName} ${order.customer.lastName}
+Email: ${order.customer.email}
+Phone: ${order.customer.phone}
 
 Delivery address:
 ${addressLines}
 
 Please send me the EFT banking details / payment instructions.`;
-
-    return { message, eftReference };
   }
 
-  function startEftCheckout() {
+  async function handleCompleteOrder() {
     setError("");
+    setSuccessMessage("");
 
-    if (!canPay || busy) return;
-
-    try {
-      const whatsappNumber = sanitizeWhatsAppNumber(
-        ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as string | undefined) ||
-          "27782166865"
-      );
-
-      if (!whatsappNumber) {
-        throw new Error("WhatsApp number is missing. Please set VITE_VAAL_EXOTICS_WHATSAPP.");
-      }
-
-      const { message, eftReference } = buildEftWhatsAppMessage();
-
-      const pendingPayload = buildPendingPayload("eft", eftReference);
-      sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
-
-      const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      console.error("[Checkout] startEftCheckout error:", e);
-      setError(e?.message || "Failed to open WhatsApp for EFT.");
-    }
-  }
-
-  async function startYocoCheckout() {
-    setError("");
-    if (!canPay || busy) return;
+    if (!canCompleteOrder || busy) return;
 
     setBusy(true);
 
     try {
-      const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
-      const courierFee = asFiniteNumber((cart as any).courierFee);
-      const grandTotal = asFiniteNumber((cart as any).grandTotal);
+      const whatsappNumber = sanitizeWhatsAppNumber(
+        ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as
+          | string
+          | undefined) || "27782166865"
+      );
 
-      if (![itemsTotal, courierFee, grandTotal].every(Number.isFinite)) {
-        throw new Error("Totals are invalid (NaN). Please refresh and try again.");
-      }
-
-      const expected = itemsTotal + courierFee;
-
-      if (Math.abs(expected - grandTotal) > 0.01) {
+      if (!whatsappNumber) {
         throw new Error(
-          `Totals mismatch. Items (${formatZAR(itemsTotal)}) + Courier (${formatZAR(
-            courierFee
-          )}) ≠ Grand total (${formatZAR(grandTotal)}). Please refresh and try again.`
+          "WhatsApp number is missing. Please set VITE_VAAL_EXOTICS_WHATSAPP."
         );
       }
 
-      const amountCents = toCents(grandTotal);
+      const reference = buildShortOrderReference();
+      const order = getOrderData(reference);
+      const pendingPayload = buildPendingPayload(reference);
 
-      if (!Number.isInteger(amountCents) || amountCents <= 0) {
-        throw new Error("Total amount is invalid.");
-      }
-
-      const items = cart.items.map((it: any) => {
-        const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
-        const priceZar = asFiniteNumber(it.price);
-
-        return {
-          // send both so the backend has less to complain about
-          id: it.id,
-          product_id: it.product_id ?? it.productId ?? it.id,
-          name: it.name,
-          qty,
-          quantity: qty,
-          price_cents: toCents(priceZar),
-          priceCents: toCents(priceZar),
-        };
-      });
-
-      const customer = {
-        email: email.trim(),
-        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-      };
-
-      const address = {
-        line1: line1.trim(),
-        line2: line2.trim() || undefined,
-        suburb: suburb.trim(),
-        city: city.trim(),
-        province: province.trim(),
-        postalCode: postalCode.trim(),
-      };
-
-      const pendingPayload = buildPendingPayload("yoco");
       sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
 
-      const requestBody = {
-        amountCents,
-        currency: "ZAR",
-        items,
-        customer,
-        address,
-      };
-
-      console.log("[Checkout] create-checkout request body:", requestBody);
-
-      const res = await fetch("/.netlify/functions/create-checkout", {
+      const emailRes = await fetch("/.netlify/functions/send-checkout-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(order),
       });
 
-      const raw = await res.text();
-      const data = safeJsonParse(raw);
+      const raw = await emailRes.text();
+      let data: any = null;
 
-      console.log("[Checkout] create-checkout response status:", res.status);
-      console.log("[Checkout] create-checkout response raw:", raw);
-      console.log("[Checkout] create-checkout response parsed:", data);
-
-      if (!res.ok) {
-        const msg =
-          (data as any)?.error ||
-          (data as any)?.details?.message ||
-          (data as any)?.details?.error ||
-          (typeof (data as any)?.details === "string" ? (data as any).details : "") ||
-          raw ||
-          `Failed to create Yoco checkout (${res.status}).`;
-
-        throw new Error(String(msg));
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = null;
       }
 
-      const redirectUrl =
-        (data as any)?.redirectUrl ||
-        (data as any)?.checkout_url ||
-        (data as any)?.url;
-
-      if (!redirectUrl || typeof redirectUrl !== "string") {
+      if (!emailRes.ok) {
         throw new Error(
-          `Checkout redirect URL missing. Response was: ${raw || "(empty)"}`
+          data?.error || raw || "Failed to send order email."
         );
       }
 
-      window.location.href = redirectUrl;
+      const message = buildWhatsAppMessage(reference);
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        message
+      )}`;
+
+      setSuccessMessage(
+        "Order email sent to Vaal Exotics management. Opening WhatsApp now."
+      );
+
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      console.error("[Checkout] startYocoCheckout error:", e);
-      setError(e?.message || "Payment failed to start.");
+      console.error("[Checkout] handleCompleteOrder error:", e);
+      setError(e?.message || "Failed to complete order.");
     } finally {
       setBusy(false);
     }
@@ -315,7 +241,8 @@ Please send me the EFT banking details / payment instructions.`;
       <div className="mx-auto max-w-4xl px-4 py-10">
         <h1 className="text-3xl font-semibold">Checkout</h1>
         <p className="mt-1 text-sm text-white/70">
-          Secure payment via Yoco Checkout or request EFT via WhatsApp.
+          Complete your order to email Vaal Exotics management and open
+          WhatsApp with the same order details ready to send.
         </p>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -444,21 +371,19 @@ Please send me the EFT banking details / payment instructions.`;
               </div>
             ) : null}
 
-            <button
-              disabled={!canPay || busy}
-              onClick={startYocoCheckout}
-              className="mt-6 h-11 w-full rounded-lg bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
-            >
-              {busy ? "Redirecting to payment..." : "Pay now"}
-            </button>
+            {successMessage ? (
+              <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">
+                {successMessage}
+              </div>
+            ) : null}
 
             <button
               type="button"
-              disabled={!canPay || busy}
-              onClick={startEftCheckout}
-              className="mt-3 h-11 w-full rounded-lg border border-white/15 bg-white/5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-40"
+              disabled={!canCompleteOrder || busy}
+              onClick={handleCompleteOrder}
+              className="mt-6 h-11 w-full rounded-lg bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
             >
-              Pay via EFT
+              {busy ? "Completing order..." : "Complete order"}
             </button>
 
             {cart.courierBracket === "over-25kg" ? (
@@ -466,13 +391,14 @@ Please send me the EFT banking details / payment instructions.`;
                 Over 25kg orders are not available for checkout. Please contact
                 us for a custom courier quote.
               </p>
-            ) : !canPay ? (
+            ) : !canCompleteOrder ? (
               <p className="mt-3 text-xs text-white/50">
-                Fill in all details to enable payment or EFT request.
+                Fill in all details to enable order completion.
               </p>
             ) : (
               <p className="mt-3 text-xs text-white/50">
-                EFT requests open WhatsApp with your customer and order details pre-filled.
+                This will email Vaal Exotics management first, then open
+                WhatsApp with the same order details for the customer to send.
               </p>
             )}
 
