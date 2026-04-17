@@ -2,26 +2,42 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+type OrderItem = {
+  name?: string;
+  quantity?: number;
+  qty?: number;
+  weightKg?: number;
+  weight?: number;
+  price?: number;
+  lineTotal?: number;
+};
+
 function json(statusCode: number, body: Record<string, unknown>) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
     body: JSON.stringify(body),
   };
 }
 
-function escapeHtml(value: string) {
+function formatMoney(value: number): string {
+  return `R${Number(value || 0).toFixed(2)}`;
+}
+
+function formatWeight(value?: number): string {
+  return `${Number(value || 0).toFixed(2)}kg`;
+}
+
+function escapeHtml(value: string): string {
   return String(value || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-}
-
-function formatZAR(value: number) {
-  const n = Number(value || 0);
-  return `R ${n.toFixed(2)}`;
 }
 
 export const handler = async (event: any) => {
@@ -30,7 +46,9 @@ export const handler = async (event: any) => {
       return {
         statusCode: 200,
         headers: {
-          Allow: "POST, OPTIONS",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
         },
         body: "",
       };
@@ -44,139 +62,230 @@ export const handler = async (event: any) => {
       return json(500, { error: "Missing RESEND_API_KEY" });
     }
 
-    if (!process.env.MAILING_LIST_TO_EMAIL) {
-      return json(500, { error: "Missing MAILING_LIST_TO_EMAIL" });
-    }
-
     const payload = JSON.parse(event.body || "{}");
 
-    const reference = String(payload.reference || "").trim();
+    const reference = String(
+      payload.reference || payload.orderRef || payload.orderReference || ""
+    ).trim();
+
     const customer = payload.customer || {};
     const address = payload.address || {};
     const totals = payload.totals || {};
-    const items = Array.isArray(payload.items) ? payload.items : [];
+    const items: OrderItem[] = Array.isArray(payload.items) ? payload.items : [];
 
-    if (!reference || !customer.email || !customer.firstName || !customer.lastName) {
-      return json(400, { error: "Missing required order details" });
+    const firstName = String(customer.firstName || payload.firstName || "").trim();
+    const lastName = String(customer.lastName || payload.lastName || "").trim();
+    const email = String(customer.email || payload.email || "").trim();
+    const phone = String(customer.phone || payload.phone || "").trim();
+
+    if (!reference) {
+      return json(400, { error: "Missing order reference" });
     }
 
-    const itemLinesHtml = items
-      .map((it: any) => {
-        const qty = Number(it.qty || 0);
-        const name = escapeHtml(it.name || "Item");
-        const lineTotal = Number(it.lineTotal || 0);
+    if (!email) {
+      return json(400, { error: "Missing customer email" });
+    }
 
-        return `<tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${qty}x ${name}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatZAR(lineTotal)}</td>
-        </tr>`;
-      })
-      .join("");
+    if (items.length === 0) {
+      return json(400, { error: "No order items supplied" });
+    }
 
-    const addressHtml = [
+    const itemsTotal = Number(
+      totals.itemsTotal ??
+        totals.subtotal ??
+        payload.itemsTotal ??
+        payload.subtotal ??
+        0
+    );
+
+    const courierFee = Number(
+      totals.courierFee ??
+        totals.deliveryFee ??
+        totals.courier ??
+        payload.courierFee ??
+        payload.deliveryFee ??
+        0
+    );
+
+    const totalKg = Number(totals.totalKg ?? payload.totalKg ?? 0);
+
+    const grandTotal = Number(
+      totals.grandTotal ??
+        totals.total ??
+        payload.grandTotal ??
+        payload.total ??
+        itemsTotal + courierFee
+    );
+
+    const courierName = String(
+      totals.courierName ||
+        payload.courierName ||
+        payload.courierOption ||
+        "Courier"
+    ).trim();
+
+    const courierRateLabel = String(
+      totals.courierRateLabel || payload.courierRateLabel || ""
+    ).trim();
+
+    const addressParts = [
       address.line1,
       address.line2,
       address.suburb,
       address.city,
       address.province,
       address.postalCode,
-    ]
-      .filter(Boolean)
-      .map((x: string) => escapeHtml(x))
-      .join("<br/>");
+    ].filter(Boolean);
 
-    const subject = `New EFT order request - ${reference}`;
+    const addressHtml = addressParts.length
+      ? addressParts.map((part: string) => escapeHtml(part)).join("<br/>")
+      : "No address supplied";
+
+    const addressText = addressParts.length
+      ? addressParts.join(", ")
+      : "No address supplied";
+
+    const itemsRowsHtml = items
+      .map((item) => {
+        const qty = Number(item.qty ?? item.quantity ?? 0);
+        const name = escapeHtml(item.name || "Item");
+        const price = Number(item.price ?? 0);
+        const weightKg = Number(item.weightKg ?? item.weight ?? 0);
+        const lineTotal = Number(item.lineTotal ?? qty * price);
+
+        return `
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
+              <strong>${name}</strong><br/>
+              Qty: ${qty}
+              ${weightKg ? `<br/>Weight: ${formatWeight(weightKg)} each` : ""}
+              ${price ? `<br/>Unit Price: ${formatMoney(price)}` : ""}
+            </td>
+            <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right;vertical-align:top;">
+              ${formatMoney(lineTotal)}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const itemsText = items
+      .map((item) => {
+        const qty = Number(item.qty ?? item.quantity ?? 0);
+        const name = item.name || "Item";
+        const price = Number(item.price ?? 0);
+        const weightKg = Number(item.weightKg ?? item.weight ?? 0);
+        const lineTotal = Number(item.lineTotal ?? qty * price);
+
+        return [
+          `${qty}x ${name}`,
+          weightKg ? `Weight: ${formatWeight(weightKg)} each` : "",
+          price ? `Unit Price: ${formatMoney(price)}` : "",
+          `Line Total: ${formatMoney(lineTotal)}`,
+        ]
+          .filter(Boolean)
+          .join(" | ");
+      })
+      .join("\n");
+
+    const subject = `New Order Received - ${reference}`;
 
     const html = `
-      <div style="font-family:Arial,sans-serif;color:#111;line-height:1.5;">
-        <h2 style="margin-bottom:8px;">New EFT Order Request</h2>
-        <p style="margin-top:0;"><strong>Reference:</strong> ${escapeHtml(reference)}</p>
+      <div style="font-family:Arial,Helvetica,sans-serif; color:#111827; line-height:1.5; max-width:700px; margin:0 auto;">
+        <h2 style="margin-bottom:8px;">New Order Received</h2>
+        <p style="margin-top:0;"><strong>Order Reference:</strong> ${escapeHtml(reference)}</p>
 
-        <h3>Customer details</h3>
+        <h3 style="margin-top:24px;">Customer Details</h3>
         <p>
-          <strong>Name:</strong> ${escapeHtml(customer.firstName)} ${escapeHtml(customer.lastName)}<br/>
-          <strong>Email:</strong> ${escapeHtml(customer.email)}<br/>
-          <strong>Phone:</strong> ${escapeHtml(customer.phone || "")}
+          <strong>Name:</strong> ${escapeHtml(firstName)} ${escapeHtml(lastName)}<br/>
+          <strong>Email:</strong> ${escapeHtml(email)}<br/>
+          <strong>Phone:</strong> ${escapeHtml(phone)}
         </p>
 
-        <h3>Delivery address</h3>
+        <h3 style="margin-top:24px;">Delivery Address</h3>
         <p>${addressHtml}</p>
 
-        <h3>Order details</h3>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <h3 style="margin-top:24px;">Products Ordered</h3>
+        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
           <thead>
             <tr>
-              <th style="padding:8px 12px;border-bottom:2px solid #d1d5db;text-align:left;">Item</th>
-              <th style="padding:8px 12px;border-bottom:2px solid #d1d5db;text-align:right;">Total</th>
+              <th style="text-align:left; padding:10px; border-bottom:2px solid #d1d5db;">Item</th>
+              <th style="text-align:right; padding:10px; border-bottom:2px solid #d1d5db;">Amount</th>
             </tr>
           </thead>
           <tbody>
-            ${itemLinesHtml}
+            ${itemsRowsHtml}
           </tbody>
         </table>
 
-        <h3>Totals</h3>
+        <h3 style="margin-top:24px;">Courier & Totals</h3>
         <p>
-          <strong>Items total:</strong> ${formatZAR(Number(totals.itemsTotal || 0))}<br/>
-          <strong>Courier:</strong> ${formatZAR(Number(totals.courierFee || 0))}<br/>
-          <strong>Total kg:</strong> ${Number(totals.totalKg || 0).toFixed(1)}kg<br/>
-          <strong>Grand total:</strong> ${formatZAR(Number(totals.grandTotal || 0))}
+          <strong>Products Total:</strong> ${formatMoney(itemsTotal)}<br/>
+          <strong>${escapeHtml(courierName)} Fee:</strong> ${formatMoney(courierFee)}<br/>
+          ${
+            courierRateLabel
+              ? `<strong>Courier Rate:</strong> ${escapeHtml(courierRateLabel)}<br/>`
+              : ""
+          }
+          <strong>Total Weight:</strong> ${formatWeight(totalKg)}<br/>
+          <strong>Total Payable:</strong> ${formatMoney(grandTotal)}
         </p>
-
-        <p>Please reply to the customer with EFT banking details / payment instructions.</p>
       </div>
     `;
 
     const text = `
-New EFT Order Request
+New Order Received
 
-Reference: ${reference}
+Order Reference: ${reference}
 
-Customer details
-Name: ${customer.firstName} ${customer.lastName}
-Email: ${customer.email}
-Phone: ${customer.phone || ""}
+Customer Details
+Name: ${firstName} ${lastName}
+Email: ${email}
+Phone: ${phone}
 
-Delivery address
-${address.line1 || ""}
-${address.line2 || ""}
-${address.suburb || ""}
-${address.city || ""}
-${address.province || ""}
-${address.postalCode || ""}
+Delivery Address
+${addressText}
 
-Order details
-${items
-  .map((it: any) => `${it.qty}x ${it.name} - ${formatZAR(Number(it.lineTotal || 0))}`)
-  .join("\n")}
+Products Ordered
+${itemsText}
 
-Totals
-Items total: ${formatZAR(Number(totals.itemsTotal || 0))}
-Courier: ${formatZAR(Number(totals.courierFee || 0))}
-Total kg: ${Number(totals.totalKg || 0).toFixed(1)}kg
-Grand total: ${formatZAR(Number(totals.grandTotal || 0))}
-
-Please reply to the customer with EFT banking details / payment instructions.
+Courier & Totals
+Products Total: ${formatMoney(itemsTotal)}
+${courierName} Fee: ${formatMoney(courierFee)}
+${courierRateLabel ? `Courier Rate: ${courierRateLabel}` : ""}
+Total Weight: ${formatWeight(totalKg)}
+Total Payable: ${formatMoney(grandTotal)}
     `.trim();
 
-    const result = await resend.emails.send({
-  from: "Vaal Exotics <onboarding@resend.dev>",
-  to: process.env.MAILING_LIST_TO_EMAIL,
-  cc: customer.email, // customer also gets a copy
-  replyTo: customer.email,
-  subject,
-  html,
-  text,
-});
+    const { data, error } = await resend.emails.send({
+      from: "Vaal Exotics <onboarding@resend.dev>",
+      to: ["info@vaalexotics.co.za"],
+      replyTo: email,
+      subject,
+      html,
+      text,
+    });
+
+    if (error) {
+      console.error("[send-checkout-email] Resend error:", error);
+      return json(500, {
+        error: "Failed to send email",
+        details: error,
+      });
+    }
+
+    console.log("[send-checkout-email] Email sent:", data);
 
     return json(200, {
       ok: true,
-      id: result.data?.id || null,
+      message: "Checkout email sent successfully",
+      data,
     });
-  } catch (e: any) {
-    console.error("[send-checkout-email] error:", e);
+  } catch (error: any) {
+    console.error("[send-checkout-email] Unexpected error:", error);
+
     return json(500, {
-      error: e?.message || "Failed to send email",
+      error: error?.message || "Something went wrong sending the email",
     });
   }
 };
