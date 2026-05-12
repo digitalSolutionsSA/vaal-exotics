@@ -1,15 +1,13 @@
-import { useCart } from "../context/cart";
-import { formatZAR } from "../lib/money";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCart } from "../context/cart";
+import { formatZAR } from "../lib/money";
 
-function asFiniteNumber(v: any, fallback = 0) {
-  const n = Number(v);
+type BusyAction = "eft" | null;
+
+function asFiniteNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
-}
-
-function sanitizeWhatsAppNumber(value: string) {
-  return String(value || "").replace(/\D/g, "");
 }
 
 function buildShortOrderReference() {
@@ -19,7 +17,7 @@ function buildShortOrderReference() {
 
 export default function Checkout() {
   const cart = useCart();
-  const nav = useNavigate();
+  const navigate = useNavigate();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -33,13 +31,20 @@ export default function Checkout() {
   const [province, setProvince] = useState("");
   const [postalCode, setPostalCode] = useState("");
 
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [orderReference, setOrderReference] = useState("");
+
+  const courierBracket = (cart as any).courierBracket;
+  const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
+  const courierFee = asFiniteNumber((cart as any).courierFee);
+  const totalKg = asFiniteNumber((cart as any).totalKg);
+  const grandTotal = asFiniteNumber((cart as any).grandTotal);
 
   const canCompleteOrder = useMemo(() => {
-    if (cart.items.length === 0) return false;
-    if (cart.courierBracket === "over-25kg") return false;
+    if (!cart.items.length) return false;
+    if (courierBracket === "over-25kg") return false;
 
     return Boolean(
       firstName.trim() &&
@@ -54,7 +59,7 @@ export default function Checkout() {
     );
   }, [
     cart.items.length,
-    cart.courierBracket,
+    courierBracket,
     firstName,
     lastName,
     email,
@@ -66,29 +71,35 @@ export default function Checkout() {
     postalCode,
   ]);
 
+  const isBusy = busyAction !== null;
+
   function getOrderData(reference?: string) {
-    const itemsTotal = asFiniteNumber((cart as any).itemsTotal);
-    const courierFee = asFiniteNumber((cart as any).courierFee);
-    const totalKg = asFiniteNumber((cart as any).totalKg);
-    const grandTotal = asFiniteNumber((cart as any).grandTotal);
+    const orderRef = reference || buildShortOrderReference();
 
-    const orderReference = reference || buildShortOrderReference();
-
-    const items = cart.items.map((it: any) => {
-      const qty = Math.max(1, Math.round(asFiniteNumber(it.qty, 1)));
-      const price = asFiniteNumber(it.price);
+    const items = cart.items.map((item: any) => {
+      const qty = Math.max(1, Math.round(asFiniteNumber(item.qty, 1)));
+      const price = asFiniteNumber(item.price);
+      const priceCents =
+        item.priceCents != null
+          ? asFiniteNumber(item.priceCents)
+          : Math.round(price * 100);
 
       return {
-        id: it.id,
-        name: it.name,
+        id: item.id,
+        productId: item.productId ?? item.product_id ?? item.id,
+        product_id: item.product_id ?? item.productId ?? item.id,
+        name: item.name ?? "Product",
         qty,
+        quantity: qty,
         price,
-        lineTotal: price * qty,
+        priceCents,
+        price_cents: priceCents,
+        lineTotal: qty * price,
       };
     });
 
     return {
-      reference: orderReference,
+      reference: orderRef,
       totals: {
         itemsTotal,
         courierFee,
@@ -98,6 +109,7 @@ export default function Checkout() {
       customer: {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
         email: email.trim(),
         phone: phone.trim(),
       },
@@ -108,102 +120,45 @@ export default function Checkout() {
         city: city.trim(),
         province: province.trim(),
         postalCode: postalCode.trim(),
+        formatted: [
+          line1.trim(),
+          line2.trim(),
+          suburb.trim(),
+          city.trim(),
+          province.trim(),
+          postalCode.trim(),
+        ]
+          .filter(Boolean)
+          .join(", "),
       },
       items,
     };
   }
 
-  function buildPendingPayload(reference?: string) {
-    const order = getOrderData(reference);
-
-    return {
-      createdAt: new Date().toISOString(),
-      paymentMethod: "eft",
-      eftReference: order.reference,
-      totals: order.totals,
-      customer: order.customer,
-      address: order.address,
-      items: order.items,
-    };
-  }
-
-  function buildWhatsAppMessage(reference?: string) {
-    const order = getOrderData(reference);
-
-    const itemsLines = order.items
-      .map((it) => `- ${it.qty}x ${it.name} - ${formatZAR(it.lineTotal)}`)
-      .join("\n");
-
-    const addressLines = [
-      order.address.line1,
-      order.address.line2 || null,
-      order.address.suburb,
-      order.address.city,
-      order.address.province,
-      order.address.postalCode,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    return `Hi, I would like to place an order.
-
-Reference: ${order.reference}
-
-Order details:
-${itemsLines}
-
-Items total: ${formatZAR(order.totals.itemsTotal)}
-Courier: ${formatZAR(order.totals.courierFee)}
-Total kg: ${order.totals.totalKg.toFixed(1)}kg
-Grand total: ${formatZAR(order.totals.grandTotal)}
-
-Customer details:
-Name: ${order.customer.firstName} ${order.customer.lastName}
-Email: ${order.customer.email}
-Phone: ${order.customer.phone}
-
-Delivery address:
-${addressLines}
-
-Please send me the EFT banking details / payment instructions.`;
-  }
-
-  async function handleCompleteOrder() {
+  async function handlePayViaEft() {
     setError("");
     setSuccessMessage("");
+    setOrderReference("");
 
-    if (!canCompleteOrder || busy) return;
+    if (!canCompleteOrder || isBusy) return;
 
-    setBusy(true);
+    setBusyAction("eft");
 
     try {
-      const whatsappNumber = sanitizeWhatsAppNumber(
-        ((import.meta as any)?.env?.VITE_VAAL_EXOTICS_WHATSAPP as
-          | string
-          | undefined) || "27782166865"
-      );
+      const order = getOrderData();
 
-      if (!whatsappNumber) {
-        throw new Error(
-          "WhatsApp number is missing. Please set VITE_VAAL_EXOTICS_WHATSAPP."
-        );
-      }
-
-      const reference = buildShortOrderReference();
-      const order = getOrderData(reference);
-      const pendingPayload = buildPendingPayload(reference);
-
-      sessionStorage.setItem("pendingOrder", JSON.stringify(pendingPayload));
-
-      const emailRes = await fetch("/.netlify/functions/send-checkout-email", {
+      const res = await fetch("/.netlify/functions/send-checkout-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(order),
+        body: JSON.stringify({
+          ...order,
+          customerEmail: order.customer.email,
+        }),
       });
 
-      const raw = await emailRes.text();
+      const raw = await res.text();
       let data: any = null;
 
       try {
@@ -212,204 +167,285 @@ Please send me the EFT banking details / payment instructions.`;
         data = null;
       }
 
-      if (!emailRes.ok) {
+      if (!res.ok) {
         throw new Error(
-          data?.error || raw || "Failed to send order email."
+          data?.details?.message ||
+            data?.error ||
+            raw ||
+            "Failed to send EFT order."
         );
       }
 
-      const message = buildWhatsAppMessage(reference);
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-        message
-      )}`;
+      setOrderReference(order.reference);
+      setSuccessMessage("success");
 
-      setSuccessMessage(
-        "Order email sent to Vaal Exotics management. Opening WhatsApp now."
-      );
-
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      try {
+        sessionStorage.setItem(
+          "pendingOrder",
+          JSON.stringify({
+            createdAt: new Date().toISOString(),
+            paymentMethod: "eft",
+            ...order,
+          })
+        );
+      } catch {
+        // ignore sessionStorage issues
+      }
     } catch (e: any) {
-      console.error("[Checkout] handleCompleteOrder error:", e);
-      setError(e?.message || "Failed to complete order.");
+      console.error("[Checkout] EFT error:", e);
+      setError(e?.message || "Failed to place EFT order.");
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-4xl px-4 py-10">
-        <h1 className="text-3xl font-semibold">Checkout</h1>
-        <p className="mt-1 text-sm text-white/70">
-          Complete your order to email Vaal Exotics management and open
-          WhatsApp with the same order details ready to send.
-        </p>
+      <div className="mx-auto w-full max-w-7xl px-4 pb-20 pt-10 md:px-6">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold tracking-tight">Checkout</h1>
+          <p className="mt-2 text-sm text-white/75">
+            Complete your details below and place your order via EFT.
+          </p>
+        </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold">Customer details</h2>
+        <div className="grid gap-6 xl:grid-cols-[minmax(420px,520px)_1fr]">
+          <section className="rounded-[24px] border border-white/10 bg-[#0a0a0a] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-7">
+            <h2 className="mb-5 text-[28px] font-semibold leading-tight">
+              Customer details
+            </h2>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                type="text"
                 placeholder="First name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
               />
               <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                type="text"
                 placeholder="Last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-              />
-              <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none sm:col-span-2"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none sm:col-span-2"
-                placeholder="Phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
               />
             </div>
 
-            <h2 className="mt-7 text-lg font-semibold">Delivery address</h2>
-            <div className="mt-4 grid gap-3">
+            <div className="mt-3 space-y-3">
               <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
+              />
+              <input
+                type="tel"
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
+              />
+            </div>
+
+            <h2 className="mb-5 mt-8 text-[28px] font-semibold leading-tight">
+              Delivery address
+            </h2>
+
+            <div className="space-y-3">
+              <input
+                type="text"
                 placeholder="Address line 1"
                 value={line1}
                 onChange={(e) => setLine1(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
               />
+
               <input
-                className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                type="text"
                 placeholder="Address line 2 (optional)"
                 value={line2}
                 onChange={(e) => setLine2(e.target.value)}
+                className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
               />
-              <div className="grid gap-3 sm:grid-cols-2">
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
-                  className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                  type="text"
                   placeholder="Suburb"
                   value={suburb}
                   onChange={(e) => setSuburb(e.target.value)}
+                  className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
                 />
                 <input
-                  className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
-                  placeholder="City"
+                  type="text"
+                  placeholder="City / Town"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
-                  className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                  type="text"
                   placeholder="Province"
                   value={province}
                   onChange={(e) => setProvince(e.target.value)}
+                  className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
                 />
                 <input
-                  className="h-11 rounded-lg border border-white/15 bg-black/40 px-4 text-sm outline-none"
+                  type="text"
                   placeholder="Postal code"
                   value={postalCode}
                   onChange={(e) => setPostalCode(e.target.value)}
+                  className="h-12 w-full rounded-[12px] border border-white/10 bg-black px-4 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/20"
                 />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold">Order summary</h2>
-
-            <div className="mt-4 space-y-2 text-sm">
-              {cart.items.map((it: any) => (
-                <div
-                  key={it.id}
-                  className="flex items-center justify-between text-white/80"
-                >
-                  <span>
-                    {it.qty}x {it.name}
-                  </span>
-                  <span>{formatZAR(it.price * it.qty)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 space-y-2 border-t border-white/10 pt-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-white/70">Items total</span>
-                <span className="font-semibold">
-                  {formatZAR(cart.itemsTotal)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/70">Courier</span>
-                <span className="font-semibold">
-                  {formatZAR(cart.courierFee)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/70">Total kg</span>
-                <span className="font-semibold">
-                  {cart.totalKg.toFixed(1)}kg
-                </span>
-              </div>
-              <div className="flex justify-between pt-2 text-base">
-                <span className="text-white/70">Grand total</span>
-                <span className="text-lg font-semibold">
-                  {formatZAR(cart.grandTotal)}
-                </span>
               </div>
             </div>
 
             {error ? (
-              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              <div className="mt-4 rounded-[12px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {error}
               </div>
             ) : null}
 
-            {successMessage ? (
-              <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">
-                {successMessage}
+            {successMessage === "success" ? (
+              <div className="mt-4 rounded-[16px] border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-100">
+                <p className="font-semibold text-emerald-300 text-base">
+                  Order received!
+                </p>
+                <p className="mt-1 text-white/70">
+                  A confirmation has been sent to your email address.
+                </p>
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p className="text-white/80">
+                    Please use your{" "}
+                    <span className="font-semibold text-white">
+                      order number or full name
+                    </span>{" "}
+                    as your payment reference and pay via EFT to the following:
+                  </p>
+                  <div className="mt-3 rounded-[12px] border border-white/10 bg-black px-4 py-3 space-y-1 text-white/85">
+                    <p>
+                      <span className="text-white/50">Order Reference: </span>
+                      <span className="font-semibold text-white">
+                        {orderReference}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-white/50">Bank: </span>FNB
+                    </p>
+                    <p>
+                      <span className="text-white/50">Account Type: </span>Gold
+                      Business Account
+                    </p>
+                    <p>
+                      <span className="text-white/50">Account Number: </span>
+                      <span className="font-semibold text-white">
+                        63103139283
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-white/50">Branch Code: </span>
+                      <span className="font-semibold text-white">250655</span>
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : null}
 
+            {courierBracket === "over-25kg" ? (
+              <div className="mt-4 rounded-[12px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                Orders over 25kg cannot be checked out online. Please contact
+                Vaal Exotics directly.
+              </div>
+            ) : null}
+
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handlePayViaEft}
+                disabled={!canCompleteOrder || isBusy}
+                className="h-12 w-full rounded-[14px] border border-white/10 bg-white/8 px-5 text-sm font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busyAction === "eft" ? "Sending..." : "Place order via EFT"}
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-white/55">
+              Placing your order notifies Vaal Exotics management and sends a
+              confirmation to your email address.
+            </p>
+          </section>
+
+          <aside className="rounded-[24px] border border-white/10 bg-[#0a0a0a] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-6">
+            <h2 className="mb-5 text-[20px] font-semibold">Order summary</h2>
+
+            <div className="space-y-3">
+              {cart.items.map((item: any) => {
+                const qty = Math.max(
+                  1,
+                  Math.round(asFiniteNumber(item.qty, 1))
+                );
+                const price = asFiniteNumber(item.price);
+                const lineTotal = qty * price;
+
+                return (
+                  <div
+                    key={item.id ?? `${item.name}-${qty}`}
+                    className="rounded-[16px] border border-white/10 bg-black px-4 py-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-[18px] font-semibold text-white">
+                          {item.name} ({qty})
+                        </p>
+                        <p className="mt-1 text-sm text-white/60">Qty: {qty}</p>
+                      </div>
+                      <div className="shrink-0 text-[18px] font-semibold text-white">
+                        {formatZAR(lineTotal)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 rounded-[16px] border border-white/10 bg-black px-4 py-4">
+              <div className="space-y-3 text-sm text-white/80">
+                <div className="flex items-center justify-between">
+                  <span>Items total</span>
+                  <span>{formatZAR(itemsTotal)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Courier</span>
+                  <span>{formatZAR(courierFee)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Total weight</span>
+                  <span>{totalKg}kg</span>
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="flex items-center justify-between text-[18px] font-bold text-white">
+                  <span>Grand total</span>
+                  <span>{formatZAR(grandTotal)}</span>
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
-              disabled={!canCompleteOrder || busy}
-              onClick={handleCompleteOrder}
-              className="mt-6 h-11 w-full rounded-lg bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
+              onClick={() => navigate("/products")}
+              className="mt-5 h-12 rounded-[14px] border border-white/10 bg-black px-5 text-sm font-medium text-white transition hover:bg-white/5"
             >
-              {busy ? "Completing order..." : "Complete order"}
+              Continue shopping
             </button>
-
-            {cart.courierBracket === "over-25kg" ? (
-              <p className="mt-3 text-xs text-white/60">
-                Over 25kg orders are not available for checkout. Please contact
-                us for a custom courier quote.
-              </p>
-            ) : !canCompleteOrder ? (
-              <p className="mt-3 text-xs text-white/50">
-                Fill in all details to enable order completion.
-              </p>
-            ) : (
-              <p className="mt-3 text-xs text-white/50">
-                This will email Vaal Exotics management first, then open
-                WhatsApp with the same order details for the customer to send.
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={() => nav("/cart")}
-              className="mt-3 h-10 w-full rounded-lg border border-white/15 bg-white/5 text-sm text-white hover:bg-white/10"
-            >
-              Back to cart
-            </button>
-          </div>
+          </aside>
         </div>
       </div>
     </main>

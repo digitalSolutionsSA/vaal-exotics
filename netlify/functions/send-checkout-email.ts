@@ -91,37 +91,21 @@ export const handler = async (event: any) => {
     }
 
     const itemsTotal = Number(
-      totals.itemsTotal ??
-        totals.subtotal ??
-        payload.itemsTotal ??
-        payload.subtotal ??
-        0
+      totals.itemsTotal ?? totals.subtotal ?? payload.itemsTotal ?? payload.subtotal ?? 0
     );
 
     const courierFee = Number(
-      totals.courierFee ??
-        totals.deliveryFee ??
-        totals.courier ??
-        payload.courierFee ??
-        payload.deliveryFee ??
-        0
+      totals.courierFee ?? totals.deliveryFee ?? totals.courier ?? payload.courierFee ?? payload.deliveryFee ?? 0
     );
 
     const totalKg = Number(totals.totalKg ?? payload.totalKg ?? 0);
 
     const grandTotal = Number(
-      totals.grandTotal ??
-        totals.total ??
-        payload.grandTotal ??
-        payload.total ??
-        itemsTotal + courierFee
+      totals.grandTotal ?? totals.total ?? payload.grandTotal ?? payload.total ?? itemsTotal + courierFee
     );
 
     const courierName = String(
-      totals.courierName ||
-        payload.courierName ||
-        payload.courierOption ||
-        "Courier"
+      totals.courierName || payload.courierName || payload.courierOption || "Courier"
     ).trim();
 
     const courierRateLabel = String(
@@ -188,9 +172,44 @@ export const handler = async (event: any) => {
       })
       .join("\n");
 
-    const subject = `New Order Received - ${reference}`;
+    // ─── Shared HTML blocks ───────────────────────────────────────────────────
 
-    const html = `
+    const totalsBlockHtml = `
+      <p>
+        <strong>Products Total:</strong> ${formatMoney(itemsTotal)}<br/>
+        <strong>${escapeHtml(courierName)} Fee:</strong> ${formatMoney(courierFee)}<br/>
+        ${courierRateLabel ? `<strong>Courier Rate:</strong> ${escapeHtml(courierRateLabel)}<br/>` : ""}
+        <strong>Total Weight:</strong> ${formatWeight(totalKg)}<br/>
+        <strong>Total Payable:</strong> ${formatMoney(grandTotal)}
+      </p>
+    `;
+
+    const totalsBlockText = `
+Products Total: ${formatMoney(itemsTotal)}
+${courierName} Fee: ${formatMoney(courierFee)}
+${courierRateLabel ? `Courier Rate: ${courierRateLabel}\n` : ""}Total Weight: ${formatWeight(totalKg)}
+Total Payable: ${formatMoney(grandTotal)}
+    `.trim();
+
+    const itemsTableHtml = `
+      <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:10px; border-bottom:2px solid #d1d5db;">Item</th>
+            <th style="text-align:right; padding:10px; border-bottom:2px solid #d1d5db;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRowsHtml}
+        </tbody>
+      </table>
+    `;
+
+    // ─── Management email ─────────────────────────────────────────────────────
+
+    const managementSubject = `New Order Received - ${reference}`;
+
+    const managementHtml = `
       <div style="font-family:Arial,Helvetica,sans-serif; color:#111827; line-height:1.5; max-width:700px; margin:0 auto;">
         <h2 style="margin-bottom:8px;">New Order Received</h2>
         <p style="margin-top:0;"><strong>Order Reference:</strong> ${escapeHtml(reference)}</p>
@@ -206,34 +225,14 @@ export const handler = async (event: any) => {
         <p>${addressHtml}</p>
 
         <h3 style="margin-top:24px;">Products Ordered</h3>
-        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:10px; border-bottom:2px solid #d1d5db;">Item</th>
-              <th style="text-align:right; padding:10px; border-bottom:2px solid #d1d5db;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsRowsHtml}
-          </tbody>
-        </table>
+        ${itemsTableHtml}
 
         <h3 style="margin-top:24px;">Courier & Totals</h3>
-        <p>
-          <strong>Products Total:</strong> ${formatMoney(itemsTotal)}<br/>
-          <strong>${escapeHtml(courierName)} Fee:</strong> ${formatMoney(courierFee)}<br/>
-          ${
-            courierRateLabel
-              ? `<strong>Courier Rate:</strong> ${escapeHtml(courierRateLabel)}<br/>`
-              : ""
-          }
-          <strong>Total Weight:</strong> ${formatWeight(totalKg)}<br/>
-          <strong>Total Payable:</strong> ${formatMoney(grandTotal)}
-        </p>
+        ${totalsBlockHtml}
       </div>
     `;
 
-    const text = `
+    const managementText = `
 New Order Received
 
 Order Reference: ${reference}
@@ -250,36 +249,117 @@ Products Ordered
 ${itemsText}
 
 Courier & Totals
-Products Total: ${formatMoney(itemsTotal)}
-${courierName} Fee: ${formatMoney(courierFee)}
-${courierRateLabel ? `Courier Rate: ${courierRateLabel}` : ""}
-Total Weight: ${formatWeight(totalKg)}
-Total Payable: ${formatMoney(grandTotal)}
+${totalsBlockText}
     `.trim();
 
-    const { data, error } = await resend.emails.send({
-      from: "Vaal Exotics <onboarding@resend.dev>",
-      to: ["info@vaalexotics.co.za"],
-      replyTo: email,
-      subject,
-      html,
-      text,
-    });
+    // ─── Customer confirmation email ──────────────────────────────────────────
 
-    if (error) {
-      console.error("[send-checkout-email] Resend error:", error);
+    const customerSubject = `Your Vaal Exotics order is confirmed — ${reference}`;
+
+    const customerHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif; color:#111827; line-height:1.5; max-width:700px; margin:0 auto;">
+        <h2 style="margin-bottom:8px;">Thanks for your order, ${escapeHtml(firstName)}!</h2>
+        <p style="margin-top:0;">
+          We've received your order. Please complete payment via EFT using the details below.
+        </p>
+        <p><strong>Order Reference:</strong> ${escapeHtml(reference)}</p>
+
+        <h3 style="margin-top:24px;">EFT Payment Details</h3>
+        <p style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px; line-height:2;">
+          Please use your <strong>order number (${escapeHtml(reference)}) or full name</strong> as your payment reference.<br/>
+          <strong>Bank:</strong> FNB<br/>
+          <strong>Account Type:</strong> Gold Business Account<br/>
+          <strong>Account Number:</strong> 63103139283<br/>
+          <strong>Branch Code:</strong> 250655
+        </p>
+
+        <h3 style="margin-top:24px;">Your Order</h3>
+        ${itemsTableHtml}
+
+        <h3 style="margin-top:24px;">Totals</h3>
+        ${totalsBlockHtml}
+
+        <h3 style="margin-top:24px;">Delivery Address</h3>
+        <p>${addressHtml}</p>
+
+        <p style="margin-top:32px; color:#6b7280; font-size:13px;">
+          If you have any questions, reply to this email or contact us at
+          <a href="mailto:info@vaalexotics.co.za" style="color:#a45512;">info@vaalexotics.co.za</a>.
+        </p>
+      </div>
+    `;
+
+    const customerText = `
+Thanks for your order, ${firstName}!
+
+We've received your order. Please complete payment via EFT using the details below.
+
+Order Reference: ${reference}
+
+EFT Payment Details
+Please use your order number (${reference}) or full name as your payment reference.
+Bank: FNB
+Account Type: Gold Business Account
+Account Number: 63103139283
+Branch Code: 250655
+
+Your Order
+${itemsText}
+
+Totals
+${totalsBlockText}
+
+Delivery Address
+${addressText}
+
+If you have any questions, contact us at info@vaalexotics.co.za.
+    `.trim();
+
+    // ─── Send both emails ─────────────────────────────────────────────────────
+
+    const [managementResult, customerResult] = await Promise.all([
+      resend.emails.send({
+        from: "Vaal Exotics <orders@vaalexotics.co.za>",  // ← updated
+        to: ["info@vaalexotics.co.za"],
+        replyTo: email,
+        subject: managementSubject,
+        html: managementHtml,
+        text: managementText,
+      }),
+      resend.emails.send({
+        from: "Vaal Exotics <orders@vaalexotics.co.za>",  // ← updated
+        to: [email],
+        replyTo: "info@vaalexotics.co.za",
+        subject: customerSubject,
+        html: customerHtml,
+        text: customerText,
+      }),
+    ]);
+
+    if (managementResult.error) {
+      console.error("[send-checkout-email] Management email error:", managementResult.error);
       return json(500, {
-        error: "Failed to send email",
-        details: error,
+        error: "Failed to send management email",
+        details: managementResult.error,
       });
     }
 
-    console.log("[send-checkout-email] Email sent:", data);
+    if (customerResult.error) {
+      console.error("[send-checkout-email] Customer confirmation email error:", customerResult.error);
+    }
+
+    console.log("[send-checkout-email] Emails sent:", {
+      management: managementResult.data,
+      customer: customerResult.data,
+    });
 
     return json(200, {
       ok: true,
-      message: "Checkout email sent successfully",
-      data,
+      message: "Checkout emails sent successfully",
+      data: {
+        management: managementResult.data,
+        customer: customerResult.data,
+      },
     });
   } catch (error: any) {
     console.error("[send-checkout-email] Unexpected error:", error);

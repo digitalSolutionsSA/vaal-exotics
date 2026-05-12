@@ -1,5 +1,6 @@
 // netlify/functions/create-checkout.ts
 import type { Handler } from "@netlify/functions";
+import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 function getEnv() {
@@ -89,20 +90,20 @@ function json(statusCode: number, body: Record<string, unknown>) {
     statusCode,
     headers: {
       "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
     body: JSON.stringify(body),
   };
 }
 
-function normalizeBaseUrl() {
+function getBaseUrl() {
   const { APP_URL, URL, DEPLOY_URL } = getEnv();
-  let baseUrl = String(
-    APP_URL || URL || DEPLOY_URL || "http://localhost:8888"
-  ).trim();
 
+  let baseUrl = String(APP_URL || URL || DEPLOY_URL || "http://localhost:8888").trim();
   baseUrl = baseUrl.replace(/\/+$/, "");
 
-  // Never use https on localhost during local dev
   if (
     baseUrl.startsWith("https://localhost") ||
     baseUrl.startsWith("https://127.0.0.1")
@@ -114,12 +115,116 @@ function normalizeBaseUrl() {
 }
 
 function getCheckoutRedirectUrl(yocoJson: any) {
-  return (
-    yocoJson?.redirectUrl ??
-    yocoJson?.redirect_url ??
-    yocoJson?.url ??
-    null
+  return yocoJson?.redirectUrl ?? yocoJson?.redirect_url ?? yocoJson?.url ?? null;
+}
+
+function buildCustomerName(customer: any) {
+  if (!customer) return null;
+
+  const explicitName = String(customer.name ?? "").trim();
+  if (explicitName) return explicitName;
+
+  const combined = [customer.firstName, customer.lastName]
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return combined || null;
+}
+
+function normalizeItems(payload: any) {
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.cartItems)) return payload.cartItems;
+  return [];
+}
+
+function normalizeAmountCents(payload: any) {
+  const raw = payload?.amountCents ?? payload?.amount_cents;
+  return Number(raw);
+}
+
+function cleanSupabaseError(error: any) {
+  if (!error) return null;
+
+  return {
+    message: error.message ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+    code: error.code ?? null,
+  };
+}
+
+async function safeOrderStatusUpdate(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  patch: Record<string, unknown>
+) {
+  const { error } = await supabase.from("orders").update(patch).eq("id", orderId);
+
+  if (!error) {
+    return { ok: true, error: null };
+  }
+
+  console.error("[create-checkout] order update failed:", cleanSupabaseError(error), patch);
+  return { ok: false, error };
+}
+
+async function safeCheckoutCreatedUpdate(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string
+) {
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      status: "checkout_created",
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    console.error(
+      "[create-checkout] checkout_created status update failed:",
+      cleanSupabaseError(error)
+    );
+  }
+}
+
+function isSpecialChargeItem(it: any) {
+  const rawIds = [
+    String(it?.id ?? "").trim().toLowerCase(),
+    String(it?.productId ?? "").trim().toLowerCase(),
+    String(it?.product_id ?? "").trim().toLowerCase(),
+  ];
+
+  if (
+    rawIds.includes("shipping") ||
+    rawIds.includes("courier") ||
+    rawIds.includes("delivery")
+  ) {
+    return true;
+  }
+
+  const name = String(it?.name ?? "").trim().toLowerCase();
+  return /shipping|courier|delivery/.test(name);
+}
+
+function normalizeCheckoutItem(it: any) {
+  const quantity = Number(it?.qty ?? it?.quantity ?? 1);
+  const priceCents = Number(
+    it?.price_cents ??
+      it?.priceCents ??
+      (Number(it?.price ?? 0) > 0 ? Math.round(Number(it.price) * 100) : 0)
   );
+
+  return {
+    raw: it,
+    isSpecialCharge: isSpecialChargeItem(it),
+    product_id: extractProductId(it?.product_id ?? it?.productId ?? it?.id),
+    name: String(it?.name ?? "Product"),
+    quantity,
+    price_cents: priceCents,
+    total_cents: quantity * priceCents,
+  };
 }
 
 export const handler: Handler = async (event) => {
@@ -131,6 +236,9 @@ export const handler: Handler = async (event) => {
         statusCode: 200,
         headers: {
           Allow: "POST, OPTIONS",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
         },
         body: "",
       };
@@ -176,6 +284,7 @@ export const handler: Handler = async (event) => {
     }
 
     const payload = safeParse(event.body);
+
     console.log("[create-checkout] raw body:", event.body);
     console.log("[create-checkout] parsed payload:", payload);
 
@@ -183,13 +292,8 @@ export const handler: Handler = async (event) => {
       return json(400, { error: "Invalid JSON" });
     }
 
-    const items = Array.isArray(payload.items)
-      ? payload.items
-      : Array.isArray(payload.cartItems)
-      ? payload.cartItems
-      : [];
-
-    const amountCents = Number(payload.amountCents ?? payload.amount_cents);
+    const items = normalizeItems(payload);
+    const amountCents = normalizeAmountCents(payload);
     const currency = String(payload.currency || "ZAR").toUpperCase();
     const customer = payload.customer ?? null;
 
@@ -198,6 +302,7 @@ export const handler: Handler = async (event) => {
       amountCents,
       currency,
       customer,
+      address: payload?.address ?? null,
     });
 
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
@@ -207,163 +312,236 @@ export const handler: Handler = async (event) => {
       });
     }
 
+    if (currency !== "ZAR") {
+      return json(400, {
+        error: "Yoco checkout only supports ZAR",
+        received: currency,
+      });
+    }
+
     if (!items.length) {
       return json(400, { error: "Missing items" });
     }
 
-    const supabase = createClient(
-      env.SUPABASE_URL!,
-      env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: { persistSession: false },
-      }
+    const normalizedCheckoutItems = items.map(normalizeCheckoutItem);
+
+    const invalidCheckoutItem = normalizedCheckoutItems.find(
+      (x) =>
+        !Number.isFinite(x.quantity) ||
+        x.quantity <= 0 ||
+        !Number.isFinite(x.price_cents) ||
+        x.price_cents < 0 ||
+        (!x.isSpecialCharge && !x.product_id)
     );
 
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .insert({
-        status: "pending",
-        currency,
-        amount_cents: amountCents,
-        customer_email: customer?.email ?? null,
-        customer_name:
-          customer?.name ??
-          [customer?.firstName, customer?.lastName].filter(Boolean).join(" ") ??
-          null,
-        customer_phone: customer?.phone ?? null,
-      })
-      .select("id")
-      .single();
+    if (invalidCheckoutItem) {
+      return json(400, {
+        error:
+          "Invalid cart item. Expected valid product UUID for product items, positive qty, and valid price_cents.",
+        badItem: {
+          name: invalidCheckoutItem.name,
+          quantity: invalidCheckoutItem.quantity,
+          price_cents: invalidCheckoutItem.price_cents,
+          product_id: invalidCheckoutItem.product_id,
+          isSpecialCharge: invalidCheckoutItem.isSpecialCharge,
+          raw: invalidCheckoutItem.raw,
+        },
+      });
+    }
 
-    console.log("[create-checkout] order insert result:", { order, orderErr });
+    const computedAmountCents = normalizedCheckoutItems.reduce(
+      (sum, item) => sum + item.total_cents,
+      0
+    );
+
+    if (computedAmountCents !== amountCents) {
+      return json(400, {
+        error: "amountCents does not match the sum of checkout line items.",
+        details: {
+          amountCents,
+          computedAmountCents,
+          lineItems: normalizedCheckoutItems.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price_cents: item.price_cents,
+            total_cents: item.total_cents,
+            isSpecialCharge: item.isSpecialCharge,
+          })),
+        },
+      });
+    }
+
+    const productOrderItems = normalizedCheckoutItems.filter((item) => !item.isSpecialCharge);
+
+    if (!productOrderItems.length) {
+      return json(400, {
+        error: "Checkout must include at least one product item.",
+      });
+    }
+
+    const supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false },
+    });
+
+    const orderInsertPayload = {
+      status: "pending",
+      currency,
+      amount_cents: amountCents,
+      customer_email: customer?.email ? String(customer.email).trim() : null,
+      customer_name: buildCustomerName(customer),
+      customer_phone: customer?.phone ? String(customer.phone).trim() : null,
+    };
+
+    console.log("[create-checkout] order insert payload:", orderInsertPayload);
+
+    const { data: insertedOrders, error: orderErr } = await supabase
+      .from("orders")
+      .insert(orderInsertPayload)
+      .select("id");
+
+    const order = Array.isArray(insertedOrders) ? insertedOrders[0] : null;
+
+    console.log("[create-checkout] order insert result:", {
+      order,
+      orderErr: cleanSupabaseError(orderErr),
+    });
 
     if (orderErr || !order?.id) {
       return json(500, {
         error: "Order insert failed",
-        details: orderErr,
-        debug: supabaseKeyDebug,
+        details: cleanSupabaseError(orderErr),
+        attemptedInsert: orderInsertPayload,
+        debug: {
+          ...supabaseKeyDebug,
+          table: "orders",
+        },
       });
     }
 
     orderId = order.id;
 
-    const orderItems = items.map((it: any) => ({
+    const orderItems = productOrderItems.map((it) => ({
       order_id: orderId,
-      product_id: extractProductId(it.product_id ?? it.productId ?? it.id),
-      name: it.name ?? null,
-      qty: Number(it.qty ?? it.quantity ?? 1),
-      price_cents: Number(
-        it.price_cents ??
-          it.priceCents ??
-          (Number(it.price ?? 0) > 0 ? Math.round(Number(it.price) * 100) : 0)
-      ),
+      product_id: it.product_id,
+      name: it.name,
+      qty: it.quantity,
+      price_cents: it.price_cents,
     }));
 
-    console.log("[create-checkout] order items:", orderItems);
+    console.log("[create-checkout] order items payload:", orderItems);
 
-    const invalid = orderItems.find(
-      (x) =>
-        !x.product_id ||
-        !Number.isFinite(x.qty) ||
-        x.qty <= 0 ||
-        !Number.isFinite(x.price_cents) ||
-        x.price_cents < 0
-    );
+    const { error: orderItemsErr } = await supabase.from("order_items").insert(orderItems);
 
-    if (invalid) {
-      await supabase.from("orders").delete().eq("id", orderId);
+    console.log("[create-checkout] order items insert result:", {
+      orderItemsErr: cleanSupabaseError(orderItemsErr),
+    });
 
-      return json(400, {
-        error:
-          "Invalid cart item. Expected valid product UUID, positive qty, and valid price_cents.",
-        debug: { ...supabaseKeyDebug, badItem: invalid },
+    if (orderItemsErr) {
+      await safeOrderStatusUpdate(supabase, orderId, {
+        status: "checkout_create_failed",
       });
-    }
-
-    const { error: itemsErr } = await supabase
-      .from("order_items")
-      .insert(orderItems);
-
-    console.log("[create-checkout] order_items insert result:", { itemsErr });
-
-    if (itemsErr) {
-      await supabase.from("orders").delete().eq("id", orderId);
 
       return json(500, {
         error: "Order items insert failed",
-        details: itemsErr,
-        debug: supabaseKeyDebug,
+        details: cleanSupabaseError(orderItemsErr),
+        attemptedInsertCount: orderItems.length,
+        orderId,
       });
     }
 
-    const baseUrl = normalizeBaseUrl();
-    const successUrl = `${baseUrl}/checkout/success?orderId=${orderId}`;
-    const cancelUrl = `${baseUrl}/checkout/cancel?orderId=${orderId}`;
+    const baseUrl = getBaseUrl();
+    const successUrl = `${baseUrl}/order-success?order_id=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `${baseUrl}/checkout`;
+    const failureUrl = `${baseUrl}/checkout`;
 
-    console.log("[create-checkout] yoco payload:", {
+    const lineItems = normalizedCheckoutItems.map((it) => ({
+      displayName: it.name,
+      quantity: it.quantity,
+      pricingDetails: {
+        price: it.price_cents,
+      },
+    }));
+
+    const yocoPayload = {
       amount: amountCents,
       currency,
       successUrl,
       cancelUrl,
+      failureUrl,
       metadata: { order_id: orderId },
-    });
+      clientReferenceId: orderId,
+      externalId: orderId,
+      lineItems,
+    };
+
+    console.log("[create-checkout] yoco payload:", yocoPayload);
 
     const yocoRes = await fetch("https://payments.yoco.com/api/checkouts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.YOCO_SECRET_KEY}`,
         "Content-Type": "application/json",
+        "Idempotency-Key": randomUUID(),
       },
-      body: JSON.stringify({
-        amount: amountCents,
-        currency,
-        successUrl,
-        cancelUrl,
-        metadata: { order_id: orderId },
-      }),
+      body: JSON.stringify(yocoPayload),
     });
 
     let yocoJson: any = null;
+    let yocoText = "";
+
     try {
       yocoJson = await yocoRes.json();
     } catch {
-      yocoJson = null;
+      try {
+        yocoText = await yocoRes.text();
+      } catch {
+        yocoText = "";
+      }
     }
 
     console.log("[create-checkout] yoco response:", {
       ok: yocoRes.ok,
       status: yocoRes.status,
-      body: yocoJson,
+      body: yocoJson ?? yocoText ?? null,
     });
 
     if (!yocoRes.ok) {
-      await supabase
-        .from("orders")
-        .update({ status: "checkout_create_failed" })
-        .eq("id", orderId);
+      await safeOrderStatusUpdate(supabase, orderId, {
+        status: "checkout_create_failed",
+      });
 
       return json(500, {
         error: "Yoco checkout failed",
-        details: yocoJson,
-        debug: { ...supabaseKeyDebug, baseUrl, successUrl, cancelUrl },
+        yocoStatus: yocoRes.status,
+        details: yocoJson ?? yocoText ?? null,
+        debug: {
+          ...supabaseKeyDebug,
+          baseUrl,
+          successUrl,
+          cancelUrl,
+          failureUrl,
+        },
       });
     }
 
     const redirectUrl = getCheckoutRedirectUrl(yocoJson);
 
-    await supabase
-      .from("orders")
-      .update({
-        status: "checkout_created",
-        yoco_checkout_id: yocoJson?.id ?? null,
-        yoco_checkout_url: redirectUrl,
-      })
-      .eq("id", orderId);
+    if (!redirectUrl) {
+      await safeOrderStatusUpdate(supabase, orderId, {
+        status: "checkout_create_failed",
+      });
+
+      return json(500, {
+        error: "Yoco did not return a redirectUrl",
+        details: yocoJson,
+      });
+    }
+
+    await safeCheckoutCreatedUpdate(supabase, orderId);
 
     return json(200, {
-      ok: true,
-      orderId,
       redirectUrl,
+      orderId,
     });
   } catch (e: any) {
     console.error("[create-checkout] fatal error:", e);
@@ -372,16 +550,13 @@ export const handler: Handler = async (event) => {
     if (orderId) {
       try {
         const env = getEnv();
-        const supabase = createClient(
-          env.SUPABASE_URL!,
-          env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { persistSession: false } }
-        );
+        const supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+          auth: { persistSession: false },
+        });
 
-        await supabase
-          .from("orders")
-          .update({ status: "checkout_create_failed" })
-          .eq("id", orderId);
+        await safeOrderStatusUpdate(supabase, orderId, {
+          status: "checkout_create_failed",
+        });
       } catch {
         // ignore secondary failure
       }
