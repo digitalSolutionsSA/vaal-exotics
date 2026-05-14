@@ -11,6 +11,13 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vaal Exotics</title>
+
+    <!-- Preload the hero background so it's ready before React boots -->
+    <link rel="preload" as="image" href="/web-bg.webp" fetchpriority="high" />
+
+    <!-- Speed up Supabase connections -->
+    <link rel="dns-prefetch" href="https://supabase.co" />
+    <link rel="preconnect" href="https://supabase.co" crossorigin />
   </head>
   <body>
     <div id="root"></div>
