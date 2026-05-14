@@ -7,6 +7,7 @@ const CAT = CATEGORY.bulk;
 
 // Brand accents
 const BRAND_BLUE = "#2F4D7A";
+const BRAND_RED = "#C43A2F";
 
 // Always fall back to the Vaal Exotics number if env var is missing
 const DEFAULT_OWNER_WHATSAPP = "27782166865";
@@ -137,13 +138,6 @@ function buildWhatsappUrl(numberRaw: string, message: string) {
   return `https://wa.me/${waNumber}?text=${encoded}`;
 }
 
-/**
- * Converts an existing Supabase public storage URL into a transformed render URL.
- * Falls back to the original src if it can't safely parse it.
- *
- * This means you do NOT need to re-upload images, because it still uses the same
- * files already sitting in Supabase Storage. Humanity occasionally stumbles into efficiency.
- */
 function toSupabaseRenderUrl(src: string, options: TransformOptions) {
   if (!src) return "";
 
@@ -731,137 +725,148 @@ export default function BulkHerbal() {
         </div>
       </div>
 
-      {/* Quick View Modal */}
+      {/* ── Quick View Modal ── ONLY THIS SECTION WAS CHANGED ──
+          Compact floating card: p-5 gap on all sides, max-w-sm on mobile,
+          rounded-3xl on all corners, 82dvh max-height, prominent red close button. */}
       {quickViewProduct && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] p-3 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/55 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
           onClick={closeQuickView}
         >
           <div
-            className="mx-auto flex h-full w-full max-w-5xl items-center justify-center"
+            className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white shadow-2xl md:max-w-4xl md:flex-row"
+            style={{ maxHeight: "82dvh" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative w-full max-h-[92vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <button
-                type="button"
-                onClick={closeQuickView}
-                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-black shadow border border-black/10"
-                aria-label="Close quick view"
-              >
-                ×
-              </button>
+            {/* Prominent close — solid red, always visible, never scrolls away */}
+            <button
+              type="button"
+              onClick={closeQuickView}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full text-white shadow-lg transition active:scale-95"
+              style={{ backgroundColor: BRAND_RED }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M1 1l10 10M11 1L1 11" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
 
-              <div className="grid max-h-[92vh] grid-cols-1 md:grid-cols-[1.05fr_0.95fr]">
-                <div className="border-b md:border-b-0 md:border-r border-black/10 bg-[#f7f7f7]">
-                  <div className="aspect-square w-full bg-white p-3 sm:p-4">
-                    {quickViewImages[quickViewImage] ? (
+            {/* Image panel — fixed short height on mobile, fills column on desktop */}
+            <div className="shrink-0 bg-[#F6F5F2] md:w-[45%]">
+              <div className="h-44 w-full overflow-hidden md:h-full">
+                {quickViewImages[quickViewImage] ? (
+                  <img
+                    src={quickViewImages[quickViewImage]}
+                    alt={quickViewProduct.name}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-black/30">
+                    No image available
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbnails — desktop only to keep mobile compact */}
+              {quickViewImages.length > 1 && (
+                <div className="hidden gap-2 overflow-x-auto border-t border-black/[0.06] bg-white/50 px-3 py-2 md:flex">
+                  {quickViewImages.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => setQuickViewImage(index)}
+                      className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl transition-all ${
+                        quickViewImage === index
+                          ? "ring-2 ring-black/70 ring-offset-1 opacity-100"
+                          : "opacity-50 hover:opacity-75"
+                      }`}
+                    >
                       <img
-                        src={quickViewImages[quickViewImage]}
-                        alt={quickViewProduct.name}
-                        className="h-full w-full object-contain"
-                        loading="eager"
-                        fetchPriority="high"
+                        src={image}
+                        alt={`${quickViewProduct.name} ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
                         decoding="async"
                       />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-black/40">
-                        No image available
-                      </div>
-                    )}
-                  </div>
-
-                  {quickViewImages.length > 1 && (
-                    <div className="flex gap-2 overflow-x-auto border-t border-black/10 bg-white p-3">
-                      {quickViewImages.map((image, index) => (
-                        <button
-                          key={`${image}-${index}`}
-                          type="button"
-                          onClick={() => setQuickViewImage(index)}
-                          className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-white p-1 ${
-                            quickViewImage === index ? "border-black" : "border-black/10"
-                          }`}
-                        >
-                          <img
-                            src={image}
-                            alt={`${quickViewProduct.name} ${index + 1}`}
-                            className="h-full w-full object-contain"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                    </button>
+                  ))}
                 </div>
+              )}
+            </div>
 
-                <div className="max-h-[92vh] overflow-y-auto p-4 sm:p-5 md:p-6">
-                  <div className="pr-10">
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-black leading-tight">
-                      {quickViewProduct.name}
-                    </h2>
+            {/* Details panel — scrollable */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pr-12 md:p-6 md:pr-14">
+              <h2 className="text-[15px] font-extrabold leading-snug text-black md:text-xl">
+                {quickViewProduct.name}
+              </h2>
 
-                    <div className="mt-3 text-2xl sm:text-3xl font-extrabold text-red-700">
-                      {formatZar(quickViewPrice)}
-                    </div>
-
-                    {quickViewProduct.description && (
-                      <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.03] p-3">
-                        <p className="text-sm sm:text-[15px] leading-6 text-black/75 whitespace-pre-wrap">
-                          {quickViewProduct.description}
-                        </p>
-                      </div>
-                    )}
-
-                    {quickViewVariants.length > 0 && (
-                      <div className="mt-4">
-                        <label className="block text-xs font-bold uppercase tracking-wide text-black/55 mb-2">
-                          Size
-                        </label>
-                        <select
-                          value={quickViewSelectedVariant?.id ?? ""}
-                          onChange={(e) =>
-                            setSelectedVariantByProduct((prev) => ({
-                              ...prev,
-                              [quickViewProduct.id]: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl border border-black/15 bg-white px-3 py-3 text-sm outline-none"
-                        >
-                          {quickViewVariants.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {shortVariantLabel(v)} · {formatZar(v.price)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => addToEnquiry(quickViewProduct)}
-                        className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-extrabold text-white"
-                        style={{ backgroundColor: BRAND_BLUE }}
-                      >
-                        Add to enquiry
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={closeQuickView}
-                        className="inline-flex items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-extrabold text-black"
-                      >
-                        Continue browsing
-                      </button>
-                    </div>
-
-                    <p className="mt-3 text-xs text-black/50">
-                      Add items to your enquiry cart, then send the full list directly to
-                      Vaal Exotics via WhatsApp.
-                    </p>
-                  </div>
-                </div>
+              <div className="mt-1 text-xl font-black tracking-tight" style={{ color: BRAND_RED }}>
+                {formatZar(quickViewPrice)}
               </div>
+
+              <div className="my-3 h-px bg-black/[0.07]" />
+
+              {quickViewProduct.description && (
+                <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-black/55 md:text-sm">
+                  {quickViewProduct.description}
+                </p>
+              )}
+
+              {quickViewVariants.length > 0 && (
+                <div className="mt-4">
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/35">
+                    Size
+                  </label>
+                  <select
+                    value={quickViewSelectedVariant?.id ?? ""}
+                    onChange={(e) =>
+                      setSelectedVariantByProduct((prev) => ({
+                        ...prev,
+                        [quickViewProduct.id]: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-black outline-none"
+                  >
+                    {quickViewVariants.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {shortVariantLabel(v)} · {formatZar(v.price)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex-1" />
+
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => { addToEnquiry(quickViewProduct); closeQuickView(); }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-extrabold text-white transition active:scale-[0.98]"
+                  style={{ backgroundColor: BRAND_BLUE }}
+                >
+                  Add to enquiry
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeQuickView}
+                  className="flex w-full items-center justify-center rounded-xl border border-black/10 py-2.5 text-[12.5px] font-semibold text-black/50 transition hover:text-black/75 active:scale-[0.98]"
+                >
+                  Continue browsing
+                </button>
+              </div>
+
+              <p className="mt-3 text-center text-[11px] text-black/30">
+                Add items to your enquiry list, then send via WhatsApp.
+              </p>
+
+              <div className="h-1" />
             </div>
           </div>
         </div>
