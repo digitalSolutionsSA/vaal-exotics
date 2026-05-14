@@ -6,19 +6,11 @@ import Footer from "../components/layout/Footer";
 
 export default function Home() {
   useEffect(() => {
-    // Enable scrolling
     const prevHtmlOverflow = document.documentElement.style.overflowY;
     const prevBodyOverflow = document.body.style.overflowY;
 
     document.documentElement.style.overflowY = "auto";
     document.body.style.overflowY = "auto";
-
-    // 🔥 Preload background image for near-instant render
-    const link = document.createElement("link");
-    link.rel = "preload";
-    link.as = "image";
-    link.href = "/web-bg.webp";
-    document.head.appendChild(link);
 
     return () => {
       document.documentElement.style.overflowY = prevHtmlOverflow;

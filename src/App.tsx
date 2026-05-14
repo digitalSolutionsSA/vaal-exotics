@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CartProvider } from "./context/cart";
 
 import Navbar from "./components/layout/Navbar";
@@ -9,44 +9,39 @@ import CookieConsent from "./components/CookieConsent";
 
 import Loader from "./components/Loader";
 
-import homeBg from "./assets/new-bg.png";
-import footerBg from "./assets/footer-bg.png";
+const About = lazy(() => import("./pages/About"));
+const Disclaimer = lazy(() => import("./pages/Disclaimer"));
 
-import About from "./pages/About";
-import Disclaimer from "./pages/Disclaimer";
-
-import Home from "./pages/Home";
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import OrderSuccess from "./pages/OrderSuccess";
-import Products from "./pages/Products";
-import FAQ from "./pages/FAQ";
+const Home = lazy(() => import("./pages/Home"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
+const Products = lazy(() => import("./pages/Products"));
+const FAQ = lazy(() => import("./pages/FAQ"));
 
 // Admin
-import AdminLogin from "./pages/AdminLogin";
-import AdminProducts from "./pages/AdminProducts";
-import ClientAdminLogin from "./pages/ClientAdminLogin";
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminProducts = lazy(() => import("./pages/AdminProducts"));
+const ClientAdminLogin = lazy(() => import("./pages/ClientAdminLogin"));
 
 // Admin wrappers
 import RequireAdmin from "./components/admin/RequireAdmin";
 import AdminLayout from "./components/admin/AdminLayout";
 
 // Category pages
-import GrowKits from "./pages/categories/GrowKits";
-import Grain from "./pages/categories/Grain";
-import Cultures from "./pages/categories/Cultures";
-import SpecialOffers from "./pages/categories/SpecialOffers";
-import CultivationSupplies from "./pages/categories/CultivationSupplies";
-import MedicinalSupplements from "./pages/categories/MedicinalSupplements";
-import BulkHerbal from "./pages/categories/BulkHerbal";
+const GrowKits = lazy(() => import("./pages/categories/GrowKits"));
+const Grain = lazy(() => import("./pages/categories/Grain"));
+const Cultures = lazy(() => import("./pages/categories/Cultures"));
+const SpecialOffers = lazy(() => import("./pages/categories/SpecialOffers"));
+const CultivationSupplies = lazy(() => import("./pages/categories/CultivationSupplies"));
+const MedicinalSupplements = lazy(() => import("./pages/categories/MedicinalSupplements"));
+const BulkHerbal = lazy(() => import("./pages/categories/BulkHerbal"));
 
 function AppShell() {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
 
   const [showLoader, setShowLoader] = useState(false);
-
-  const criticalImages = useMemo(() => [homeBg, footerBg], []);
 
   const REAPPEAR_COOLDOWN_MS = 30_000;
 
@@ -96,7 +91,7 @@ function AppShell() {
   };
 
   if (showLoader) {
-    return <Loader images={criticalImages} onDone={handleLoaderDone} />;
+    return <Loader images={[]} onDone={handleLoaderDone} />;
   }
 
   return (
@@ -107,6 +102,7 @@ function AppShell() {
 
       <div className="flex-1 relative z-10">
         <div className={isHome ? "pt-0" : "pt-16 sm:pt-20"}>
+          <Suspense fallback={<div className="fixed inset-0 bg-black" />}>
           <Routes>
             {/* Public */}
             <Route path="/" element={<Home />} />
@@ -202,6 +198,7 @@ function AppShell() {
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </div>
       </div>
 

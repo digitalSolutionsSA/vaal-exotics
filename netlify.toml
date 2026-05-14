@@ -4,3 +4,32 @@
 
 [functions]
   directory = "netlify/functions"
+
+# Long-term cache for hashed JS/CSS/image assets (Vite adds content hashes)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache static images in /public for 1 week
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/categories/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+# Cache the hero background specifically — it's large and critical
+[[headers]]
+  for = "/web-bg.webp"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+# HTML should revalidate on every visit
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
