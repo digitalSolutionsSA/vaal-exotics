@@ -319,7 +319,7 @@ If you have any questions, contact us at info@vaalexotics.co.za.
 
     const [managementResult, customerResult] = await Promise.all([
       resend.emails.send({
-        from: "Vaal Exotics <orders@vaalexotics.co.za>",  // ← updated
+        from: "Vaal Exotics <onboarding@resend.dev>",
         to: ["info@vaalexotics.co.za"],
         replyTo: email,
         subject: managementSubject,
@@ -327,7 +327,7 @@ If you have any questions, contact us at info@vaalexotics.co.za.
         text: managementText,
       }),
       resend.emails.send({
-        from: "Vaal Exotics <orders@vaalexotics.co.za>",  // ← updated
+        from: "Vaal Exotics <onboarding@resend.dev>",
         to: [email],
         replyTo: "info@vaalexotics.co.za",
         subject: customerSubject,
