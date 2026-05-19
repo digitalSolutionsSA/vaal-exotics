@@ -220,11 +220,13 @@ export const handler = async (event: any) => {
     console.log("[send-checkout-email] management:", mgmtOk ? "sent" : "failed", mgmtResult);
     console.log("[send-checkout-email] customer:", custOk ? "sent" : "failed", custResult);
 
-    if (!custOk) {
-      const err = custResult.status === "rejected" ? custResult.reason : (custResult.value as any).error;
-      return json(500, { error: "Failed to send customer email", details: err });
+    // Management notification is critical — if it fails the order cannot be accepted
+    if (!mgmtOk) {
+      const err = mgmtResult.status === "rejected" ? mgmtResult.reason : (mgmtResult.value as any).error;
+      return json(500, { error: "Failed to send management notification", details: err });
     }
 
+    // Customer confirmation is best-effort — management already has the order
     return json(200, {
       ok: true,
       managementEmailSent: mgmtOk,

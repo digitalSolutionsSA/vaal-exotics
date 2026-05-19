@@ -132,31 +132,31 @@ function normalizeSizeText(size: string) {
     .replace(",", ".");
 }
 
+function parseSizeNumber(size: string) {
+  const cleaned = String(size ?? "").trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function computeChargeableKgFromVariant(variant: ProductVariant | null) {
   if (!variant) return 1;
 
   const sizeKey = normalizeSizeText(variant.size);
   const labelKey = normalizeSizeText(shortVariantLabel(variant));
 
-  if (sizeKey === "1" || sizeKey === "1l" || labelKey === "1l") {
-    return 1;
-  }
+  // Grow kit size mappings (litre-based sizes map to known packed weights)
+  if (sizeKey === "1l" || labelKey === "1l") return 1;
+  if (sizeKey === "2.5l" || labelKey === "2.5l") return 1.5;
+  if (sizeKey === "5l" || labelKey === "5l") return 2.5;
+  if (sizeKey === "20l" || labelKey === "20l") return 10;
+  if (sizeKey === "box" || labelKey === "box") return 1.5;
 
-  if (sizeKey === "2.5" || sizeKey === "2.5l" || labelKey === "2.5l") {
-    return 1.5;
-  }
-
-  if (sizeKey === "5" || sizeKey === "5l" || labelKey === "5l") {
-    return 2.5;
-  }
-
-  if (sizeKey === "20" || sizeKey === "20l" || labelKey === "20l") {
-    return 10;
-  }
-
-  if (sizeKey === "box" || labelKey === "box") {
-    return 1.5;
-  }
+  // Unit-based weight calculation for non-grow-kit products
+  const amount = parseSizeNumber(variant.size);
+  const base = amount > 0 ? amount : 1;
+  if (variant.unit === "kg") return base;
+  if (variant.unit === "l") return base;
+  if (variant.unit === "ml") return Math.max(0.1, base / 1000);
 
   return 1;
 }

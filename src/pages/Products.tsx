@@ -16,7 +16,7 @@ type SortOption =
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
-type VariantUnit = "kg" | "l";
+type VariantUnit = "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
@@ -88,7 +88,7 @@ function normalizeVariants(p: ShopProduct): ProductVariant[] {
     .filter(Boolean)
     .map((x: any, i: number) => ({
       id: String(x.id ?? `${p.id}_${i}`),
-      unit: (x.unit === "l" ? "l" : "kg") as VariantUnit,
+      unit: (x.unit === "l" ? "l" : x.unit === "ml" ? "ml" : "kg") as VariantUnit,
       size: String(x.size ?? ""),
       price: Number(x.price ?? 0),
     }))
@@ -153,6 +153,7 @@ function computeChargeableKg(variant: ProductVariant | null) {
 
   if (variant.unit === "kg") return base;
   if (variant.unit === "l") return base;
+  if (variant.unit === "ml") return Math.max(0.1, base / 1000);
 
   return 1;
 }

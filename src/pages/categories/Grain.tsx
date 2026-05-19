@@ -127,6 +127,22 @@ function shortDesc(desc: string | null | undefined, maxLen = 68) {
   return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
 }
 
+function parseSizeNumber(size: string) {
+  const cleaned = String(size ?? "").trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeChargeableKg(variant: ProductVariant | null) {
+  if (!variant) return 1;
+  const amount = parseSizeNumber(variant.size);
+  const base = amount > 0 ? amount : 1;
+  if (variant.unit === "kg") return base;
+  if (variant.unit === "l") return base;
+  if (variant.unit === "ml") return Math.max(0.1, base / 1000);
+  return 1;
+}
+
 export default function Grain() {
   const cart = useCart();
 
@@ -213,6 +229,7 @@ export default function Grain() {
       id: itemId,
       name: v ? `${product.name} (${variantLabel})` : product.name,
       price,
+      chargeableKg: computeChargeableKg(v),
       category: product.category,
       size: v?.size ?? "",
       variantLabel,

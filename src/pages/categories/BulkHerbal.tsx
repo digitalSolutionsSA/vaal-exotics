@@ -387,7 +387,7 @@ export default function BulkHerbal() {
     if (!enquiryCart.length) return;
 
     const lines = enquiryCart.map((x) => {
-      const v = x.variant ? ` (${shortVariantLabel(x.variant)})` : "";
+      const v = x.variant ? ` (${shortVariantLabel(x.variant)})` : " (1kg)";
       const unitPrice = x.variant?.price ?? x.basePrice ?? 0;
       return `• ${x.qty} × ${x.name}${v} — ${formatZar(unitPrice)}`;
     });
@@ -535,6 +535,7 @@ export default function BulkHerbal() {
 
             const displayPrice = selectedVariant?.price ?? Number(p.price ?? 0);
             const desc = shortDesc(p.description);
+            const hasVariants = variants.length > 0;
 
             return (
               <div
@@ -553,7 +554,7 @@ export default function BulkHerbal() {
                 <button
                   type="button"
                   onClick={() => openQuickView(p)}
-                  className="block text-left border-b border-black/10 bg-white"
+                  className="block text-left border-b border-black/10 bg-white relative"
                 >
                   <div className="aspect-square sm:aspect-[4/3] w-full bg-white p-2 sm:p-3">
                     {img ? (
@@ -572,6 +573,16 @@ export default function BulkHerbal() {
                       </div>
                     )}
                   </div>
+
+                  {/* 1kg badge — only shown when no variants */}
+                  {!hasVariants && (
+                    <span
+                      className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-white tracking-wide"
+                      style={{ backgroundColor: BRAND_BLUE }}
+                    >
+                      1kg
+                    </span>
+                  )}
                 </button>
 
                 <div
@@ -603,7 +614,7 @@ export default function BulkHerbal() {
                   </div>
 
                   <div className="min-h-[56px]">
-                    {variants.length > 0 ? (
+                    {hasVariants ? (
                       <div>
                         <label className="text-[10px] font-semibold text-black/60">
                           Size
@@ -626,7 +637,16 @@ export default function BulkHerbal() {
                         </select>
                       </div>
                     ) : (
-                      <div className="h-[56px]" />
+                      /* Flat 1kg size pill replacing the empty space */
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-semibold text-black/50">Size</span>
+                        <span
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold border"
+                          style={{ borderColor: BRAND_BLUE + "40", color: BRAND_BLUE }}
+                        >
+                          1kg
+                        </span>
+                      </div>
                     )}
                   </div>
 
@@ -703,7 +723,7 @@ export default function BulkHerbal() {
                     <div key={x.key} className="flex items-center justify-between gap-2">
                       <div className="text-[11px] text-black/75 min-w-0 truncate">
                         {x.qty} × {x.name}
-                        {x.variant ? ` (${shortVariantLabel(x.variant)})` : ""}
+                        {x.variant ? ` (${shortVariantLabel(x.variant)})` : " (1kg)"}
                       </div>
                       <button
                         onClick={() => removeOne(x.key)}
@@ -725,9 +745,7 @@ export default function BulkHerbal() {
         </div>
       </div>
 
-      {/* ── Quick View Modal ── ONLY THIS SECTION WAS CHANGED ──
-          Compact floating card: p-5 gap on all sides, max-w-sm on mobile,
-          rounded-3xl on all corners, 82dvh max-height, prominent red close button. */}
+      {/* Quick View Modal */}
       {quickViewProduct && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/55 backdrop-blur-sm"
@@ -740,7 +758,7 @@ export default function BulkHerbal() {
             style={{ maxHeight: "82dvh" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Prominent close — solid red, always visible, never scrolls away */}
+            {/* Prominent close */}
             <button
               type="button"
               onClick={closeQuickView}
@@ -753,7 +771,7 @@ export default function BulkHerbal() {
               </svg>
             </button>
 
-            {/* Image panel — fixed short height on mobile, fills column on desktop */}
+            {/* Image panel */}
             <div className="shrink-0 bg-[#F6F5F2] md:w-[45%]">
               <div className="h-44 w-full overflow-hidden md:h-full">
                 {quickViewImages[quickViewImage] ? (
@@ -772,7 +790,6 @@ export default function BulkHerbal() {
                 )}
               </div>
 
-              {/* Thumbnails — desktop only to keep mobile compact */}
               {quickViewImages.length > 1 && (
                 <div className="hidden gap-2 overflow-x-auto border-t border-black/[0.06] bg-white/50 px-3 py-2 md:flex">
                   {quickViewImages.map((image, index) => (
@@ -799,7 +816,7 @@ export default function BulkHerbal() {
               )}
             </div>
 
-            {/* Details panel — scrollable */}
+            {/* Details panel */}
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pr-12 md:p-6 md:pr-14">
               <h2 className="text-[15px] font-extrabold leading-snug text-black md:text-xl">
                 {quickViewProduct.name}
@@ -817,7 +834,7 @@ export default function BulkHerbal() {
                 </p>
               )}
 
-              {quickViewVariants.length > 0 && (
+              {quickViewVariants.length > 0 ? (
                 <div className="mt-4">
                   <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/35">
                     Size
@@ -838,6 +855,19 @@ export default function BulkHerbal() {
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : (
+                /* 1kg pill in the quick view modal */
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-black/35">
+                    Size
+                  </span>
+                  <span
+                    className="px-3 py-1 rounded-lg text-[12px] font-extrabold border"
+                    style={{ borderColor: BRAND_BLUE + "40", color: BRAND_BLUE }}
+                  >
+                    1kg
+                  </span>
                 </div>
               )}
 
