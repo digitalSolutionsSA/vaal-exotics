@@ -30,8 +30,8 @@ export default function Cart() {
       />
 
       {/* ✅ Content */}
-      <div className="relative z-10 mx-auto max-w-4xl px-4 pt-20 sm:pt-28 pb-24">
-        <div className="flex items-end justify-between gap-4">
+      <div className="relative z-10 mx-auto max-w-4xl px-4 pt-6 sm:pt-10 pb-24">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1
               className="text-3xl font-semibold text-white"
@@ -77,17 +77,18 @@ export default function Cart() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 sm:shrink-0">
                     <input
-                      className="h-10 w-20 rounded-lg border border-white/20 bg-black/40 px-3 text-sm text-white outline-none focus:border-white/35"
+                      className="h-11 w-20 rounded-lg border border-white/20 bg-black/40 px-3 text-sm text-white outline-none focus:border-white/35"
                       type="number"
+                      inputMode="numeric"
                       min={1}
                       value={it.qty}
                       onChange={(e) => cart.setQty(it.id, Number(e.target.value))}
                     />
                     <button
                       onClick={() => cart.removeItem(it.id)}
-                      className="h-10 rounded-lg border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white hover:bg-white/15"
+                      className="h-11 flex-1 sm:flex-none rounded-lg border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/15"
                     >
                       Remove
                     </button>
@@ -128,7 +129,7 @@ export default function Cart() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <button
                   onClick={() => cart.clear()}
-                  className="h-11 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white hover:bg-white/15"
+                  className="h-12 w-full sm:w-auto rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-white hover:bg-white/15"
                 >
                   Clear cart
                 </button>
@@ -136,7 +137,7 @@ export default function Cart() {
                 <button
                   disabled={cart.courierBracket === "over-25kg"}
                   onClick={() => nav("/checkout")}
-                  className="h-11 rounded-lg bg-white px-5 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
+                  className="h-12 w-full sm:w-auto rounded-lg bg-white px-5 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40"
                 >
                   Checkout
                 </button>

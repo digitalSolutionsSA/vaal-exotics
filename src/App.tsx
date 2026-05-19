@@ -101,7 +101,7 @@ function AppShell() {
       </div>
 
       <div className="flex-1 relative z-10">
-        <div className={isHome ? "pt-0" : "pt-16 sm:pt-20"}>
+        <div className={isHome ? "pt-0" : "pt-20"}>
           <Suspense fallback={<div className="fixed inset-0 bg-black" />}>
           <Routes>
             {/* Public */}

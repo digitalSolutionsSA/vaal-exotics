@@ -135,7 +135,7 @@ export default function OrderSuccess() {
 
   if (!order) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center p-10">
+      <main className="min-h-screen bg-black text-white flex items-center justify-center p-6 sm:p-10">
         <div className="max-w-lg text-center">
           <h1 className="text-2xl font-semibold">No order details found</h1>
           <p className="mt-2 text-white/70">
@@ -188,11 +188,11 @@ export default function OrderSuccess() {
     .join("\n");
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10">
-          <h1 className="text-3xl font-semibold">Payment completed</h1>
-          <p className="mt-2 text-white/70">
+    <main className="min-h-screen bg-black text-white overflow-x-hidden">
+      <div className="mx-auto max-w-4xl px-4 pt-4 pb-12 sm:pt-8">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-semibold">Payment completed</h1>
+          <p className="mt-2 text-sm text-white/70 break-words">
             Thanks! Your checkout was completed. The owner notification is being
             submitted automatically from the backend.
           </p>
@@ -256,7 +256,7 @@ export default function OrderSuccess() {
                 This is the message submitted to WhatsApp from the backend after
                 checkout success.
               </p>
-              <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
+              <pre className="mt-4 whitespace-pre-wrap break-words overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80 max-w-full">
                 {ownerMessage}
               </pre>
             </div>

@@ -200,18 +200,18 @@ export default function Checkout() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto w-full max-w-7xl px-4 pb-20 pt-10 md:px-6">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">Checkout</h1>
+    <main className="min-h-screen bg-black text-white overflow-x-hidden">
+      <div className="mx-auto w-full max-w-4xl px-4 pb-20 pt-4 sm:pt-8 sm:px-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">Checkout</h1>
           <p className="mt-2 text-sm text-white/75">
             Complete your details below and place your order via EFT.
           </p>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(420px,520px)_1fr]">
-          <section className="rounded-[24px] border border-white/10 bg-[#0a0a0a] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-7">
-            <h2 className="mb-5 text-[28px] font-semibold leading-tight">
+        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+          <section className="min-w-0 rounded-[20px] border border-white/10 bg-[#0a0a0a] p-4 sm:p-6 overflow-hidden">
+            <h2 className="mb-4 text-xl sm:text-[28px] font-semibold leading-tight">
               Customer details
             </h2>
 
@@ -249,7 +249,7 @@ export default function Checkout() {
               />
             </div>
 
-            <h2 className="mb-5 mt-8 text-[28px] font-semibold leading-tight">
+            <h2 className="mb-4 mt-7 text-xl sm:text-[28px] font-semibold leading-tight">
               Delivery address
             </h2>
 
@@ -312,46 +312,43 @@ export default function Checkout() {
             ) : null}
 
             {successMessage === "success" ? (
-              <div className="mt-4 rounded-[16px] border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-100">
+              <div className="mt-4 rounded-[16px] border border-emerald-500/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100 overflow-hidden">
                 <p className="font-semibold text-emerald-300 text-base">
                   Order received!
                 </p>
-                <p className="mt-1 text-white/70">
+                <p className="mt-1 text-white/70 break-words">
                   A confirmation has been sent to your email address.
                 </p>
 
                 <div className="mt-4 border-t border-white/10 pt-4">
-                  <p className="text-white/80">
+                  <p className="text-white/80 break-words">
                     Please use your{" "}
                     <span className="font-semibold text-white">
                       order number or full name
                     </span>{" "}
                     as your payment reference and pay via EFT to the following:
                   </p>
-                  <div className="mt-3 rounded-[12px] border border-white/10 bg-black px-4 py-3 space-y-1 text-white/85">
-                    <p>
-                      <span className="text-white/50">Order Reference: </span>
-                      <span className="font-semibold text-white">
-                        {orderReference}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-white/50">Bank: </span>FNB
-                    </p>
-                    <p>
-                      <span className="text-white/50">Account Type: </span>Gold
-                      Business Account
-                    </p>
-                    <p>
-                      <span className="text-white/50">Account Number: </span>
-                      <span className="font-semibold text-white">
-                        63103139283
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-white/50">Branch Code: </span>
+                  <div className="mt-3 rounded-[12px] border border-white/10 bg-black px-3 py-3 space-y-2 text-white/85">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <span className="text-white/50 shrink-0">Order Reference:</span>
+                      <span className="font-semibold text-white">{orderReference}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <span className="text-white/50 shrink-0">Bank:</span>
+                      <span className="font-semibold text-white">FNB</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <span className="text-white/50 shrink-0">Account Type:</span>
+                      <span className="font-semibold text-white">Gold Business Account</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <span className="text-white/50 shrink-0">Account Number:</span>
+                      <span className="font-semibold text-white">63103139283</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <span className="text-white/50 shrink-0">Branch Code:</span>
                       <span className="font-semibold text-white">250655</span>
-                    </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -369,20 +366,20 @@ export default function Checkout() {
                 type="button"
                 onClick={handlePayViaEft}
                 disabled={!canCompleteOrder || isBusy}
-                className="h-12 w-full rounded-[14px] border border-white/10 bg-white/8 px-5 text-sm font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-12 w-full rounded-[14px] border border-white/10 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busyAction === "eft" ? "Sending..." : "Place order via EFT"}
               </button>
             </div>
 
-            <p className="mt-4 text-sm leading-6 text-white/55">
+            <p className="mt-4 text-sm leading-6 text-white/55 break-words">
               Placing your order notifies Vaal Exotics management and sends a
               confirmation to your email address.
             </p>
           </section>
 
-          <aside className="rounded-[24px] border border-white/10 bg-[#0a0a0a] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-6">
-            <h2 className="mb-5 text-[20px] font-semibold">Order summary</h2>
+          <aside className="min-w-0 rounded-[20px] border border-white/10 bg-[#0a0a0a] p-4 sm:p-5 overflow-hidden">
+            <h2 className="mb-4 text-lg sm:text-[20px] font-semibold">Order summary</h2>
 
             <div className="space-y-3">
               {cart.items.map((item: any) => {
@@ -396,16 +393,16 @@ export default function Checkout() {
                 return (
                   <div
                     key={item.id ?? `${item.name}-${qty}`}
-                    className="rounded-[16px] border border-white/10 bg-black px-4 py-4"
+                    className="rounded-[16px] border border-white/10 bg-black px-4 py-3"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="truncate text-[18px] font-semibold text-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-semibold text-white break-words">
                           {item.name} ({qty})
                         </p>
                         <p className="mt-1 text-sm text-white/60">Qty: {qty}</p>
                       </div>
-                      <div className="shrink-0 text-[18px] font-semibold text-white">
+                      <div className="shrink-0 text-base font-semibold text-white">
                         {formatZAR(lineTotal)}
                       </div>
                     </div>
@@ -414,7 +411,7 @@ export default function Checkout() {
               })}
             </div>
 
-            <div className="mt-5 rounded-[16px] border border-white/10 bg-black px-4 py-4">
+            <div className="mt-4 rounded-[16px] border border-white/10 bg-black px-4 py-4">
               <div className="space-y-3 text-sm text-white/80">
                 <div className="flex items-center justify-between">
                   <span>Items total</span>
@@ -431,7 +428,7 @@ export default function Checkout() {
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
-                <div className="flex items-center justify-between text-[18px] font-bold text-white">
+                <div className="flex items-center justify-between text-base font-bold text-white">
                   <span>Grand total</span>
                   <span>{formatZAR(grandTotal)}</span>
                 </div>
@@ -441,7 +438,7 @@ export default function Checkout() {
             <button
               type="button"
               onClick={() => navigate("/products")}
-              className="mt-5 h-12 rounded-[14px] border border-white/10 bg-black px-5 text-sm font-medium text-white transition hover:bg-white/5"
+              className="mt-4 h-12 w-full rounded-[14px] border border-white/10 bg-black px-5 text-sm font-medium text-white transition hover:bg-white/5"
             >
               Continue shopping
             </button>
