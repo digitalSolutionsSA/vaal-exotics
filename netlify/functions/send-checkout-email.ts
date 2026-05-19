@@ -2,7 +2,8 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = "Vaal Exotics <orders@vaalexotics.co.za>";
+const FROM_CUSTOMER = "Vaal Exotics <orders@vaalexotics.co.za>";
+const FROM_MANAGEMENT = "Vaal Exotics Orders <onboarding@resend.dev>";
 const MANAGEMENT_EMAIL = "info@vaalexotics.co.za";
 
 type OrderItem = {
@@ -197,7 +198,7 @@ export const handler = async (event: any) => {
 
     const [mgmtResult, custResult] = await Promise.allSettled([
       resend.emails.send({
-        from: FROM,
+        from: FROM_MANAGEMENT,
         to: [MANAGEMENT_EMAIL],
         replyTo: email,
         subject: `New Order — ${reference} | ${firstName} ${lastName}`,
@@ -205,7 +206,7 @@ export const handler = async (event: any) => {
         text: `New Order: ${reference}\n\nCustomer: ${firstName} ${lastName}\nEmail: ${email}\nPhone: ${phone}\n\nAddress: ${addressText}\n\nItems:\n${itemsText}\n\n${totalsText}`,
       }),
       resend.emails.send({
-        from: FROM,
+        from: FROM_CUSTOMER,
         to: [email],
         replyTo: MANAGEMENT_EMAIL,
         subject: `Your Vaal Exotics order is confirmed — ${reference}`,
