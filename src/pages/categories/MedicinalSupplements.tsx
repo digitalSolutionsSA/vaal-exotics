@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import medicinalBg from "../../assets/new-bg.png";
 import ProductQuickView from "../../components/ProductQuickView";
 import { CATEGORY, normCategory } from "../../lib/category";
+import { useCart } from "../../context/cart";
 
 const CAT = CATEGORY.medicinal;
 
@@ -158,6 +159,8 @@ export default function MedicinalSupplements() {
     return products.filter((p) => normCategory(p?.category) === want);
   }, [products]);
 
+  const { addItem } = useCart();
+
   const openPopup = (p: ShopProduct, idx: number) => {
     setActive(p);
     setActiveAccent(idx % 2 === 0 ? "blue" : "red");
@@ -165,7 +168,20 @@ export default function MedicinalSupplements() {
   };
 
   const addToCart = ({ product, qty, variant }: any) => {
-    console.log("ADD TO CART:", { productId: product.id, qty, variant });
+    const cartId = variant ? `${product.id}_${variant.id}` : product.id;
+    const variantLabel = variant ? `${variant.size}${variant.unit.toUpperCase()}` : undefined;
+    addItem(
+      {
+        id: cartId,
+        name: product.name,
+        price: variant ? variant.price : Number(product.price ?? 0),
+        category: product.category,
+        size: variant?.size,
+        variantLabel,
+        chargeableKg: 0,
+      },
+      qty ?? 1
+    );
   };
 
   const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";

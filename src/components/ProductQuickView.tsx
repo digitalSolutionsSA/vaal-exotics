@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-export type VariantUnit = "kg" | "l";
+export type VariantUnit = "kg" | "l" | "ml";
 
 export type ProductVariant = {
   id: string;
@@ -41,16 +41,17 @@ function formatZar(value: any) {
 }
 function normalizeVariants(v: any): ProductVariant[] {
   if (!Array.isArray(v)) return [];
-  return v
+  return (v
     .map((x) => {
       const id = String(x?.id ?? "");
-      const unit = x?.unit === "l" ? "l" : x?.unit === "kg" ? "kg" : null;
+      const unit = x?.unit === "l" ? "l" : x?.unit === "kg" ? "kg" : x?.unit === "ml" ? "ml" : null;
       const size = String(x?.size ?? "").trim();
       const price = Number(x?.price);
       if (!id || !unit || !size || !Number.isFinite(price)) return null;
       return { id, unit, size, price } as ProductVariant;
     })
-    .filter(Boolean) as ProductVariant[];
+    .filter(Boolean) as ProductVariant[])
+    .sort((a, b) => a.price - b.price);
 }
 function coerceImages(raw: any): string[] {
   let arr: any[] = [];
