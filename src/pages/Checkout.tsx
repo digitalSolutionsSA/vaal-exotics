@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/cart";
 import { formatZAR } from "../lib/money";
 
-type BusyAction = "eft" | null;
+type BusyAction = "eft" | "payfast" | null;
 
 function asFiniteNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -135,6 +135,72 @@ export default function Checkout() {
     };
   }
 
+  async function handlePayViaPayFast() {
+    setError("");
+    setSuccessMessage("");
+    setOrderReference("");
+
+    if (!canCompleteOrder || isBusy) return;
+
+    setBusyAction("payfast");
+
+    try {
+      const order = getOrderData();
+
+      try {
+        sessionStorage.setItem(
+          "pendingOrder",
+          JSON.stringify({
+            createdAt: new Date().toISOString(),
+            paymentMethod: "payfast",
+            ...order,
+          })
+        );
+      } catch {
+        // ignore sessionStorage issues
+      }
+
+      const res = await fetch("/.netlify/functions/payfast-initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to initiate PayFast payment.");
+      }
+
+      const { payfastUrl, fields } = data as {
+        payfastUrl: string;
+        fields: Record<string, string>;
+      };
+
+      // Build and auto-submit a hidden form to PayFast
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = payfastUrl;
+      form.style.display = "none";
+
+      Object.entries(fields).forEach(([key, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = String(value);
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+      // Page navigates away — no need to reset busyAction
+    } catch (e: any) {
+      console.error("[Checkout] PayFast error:", e);
+      setError(e?.message || "Failed to start PayFast payment.");
+      setBusyAction(null);
+    }
+  }
+
   async function handlePayViaEft() {
     setError("");
     setSuccessMessage("");
@@ -205,7 +271,7 @@ export default function Checkout() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">Checkout</h1>
           <p className="mt-2 text-sm text-white/75">
-            Complete your details below and place your order via EFT.
+            Complete your details below to pay online or place an EFT order.
           </p>
         </div>
 
@@ -364,7 +430,24 @@ export default function Checkout() {
               </div>
             ) : null}
 
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={handlePayViaPayFast}
+                disabled={!canCompleteOrder || isBusy}
+                className="h-12 w-full rounded-[14px] bg-white px-5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busyAction === "payfast"
+                  ? "Redirecting to PayFast..."
+                  : "Pay online with PayFast"}
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xs text-white/40">or</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
               <button
                 type="button"
                 onClick={handlePayViaEft}
@@ -376,8 +459,9 @@ export default function Checkout() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-white/55">
-              Placing your order notifies Vaal Exotics management and sends a
-              confirmation to your email address.
+              PayFast accepts card, Instant EFT, and more — payment is
+              confirmed immediately. EFT requires a manual bank transfer after
+              ordering.
             </p>
           </section>
 

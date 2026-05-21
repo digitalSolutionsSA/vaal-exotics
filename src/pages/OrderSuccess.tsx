@@ -14,6 +14,7 @@ export default function OrderSuccess() {
 
   // create-checkout.ts currently sends order_id, not orderId
   const orderId = q.get("order_id") || q.get("orderId") || "";
+  const isPayFast = q.get("payment") === "payfast" || order?.paymentMethod === "payfast";
 
   const raw =
     sessionStorage.getItem("pendingOrder") ||
@@ -42,6 +43,8 @@ export default function OrderSuccess() {
     let cancelled = false;
 
     async function sendOwnerNotification() {
+      // PayFast orders: emails are sent by the ITN webhook — skip here
+      if (isPayFast) return;
       if (!orderId || !order) return;
 
       const sentKey = `owner_notified_${orderId}`;
@@ -191,39 +194,49 @@ export default function OrderSuccess() {
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-10">
-          <h1 className="text-3xl font-semibold">Payment completed</h1>
+          <h1 className="text-3xl font-semibold">
+            {isPayFast ? "Payment received!" : "Order confirmed"}
+          </h1>
           <p className="mt-2 text-white/70">
-            Thanks! Your checkout was completed. The owner notification is being
-            submitted automatically from the backend.
+            {isPayFast
+              ? "Your payment was processed by PayFast. A confirmation email is on its way to you."
+              : "Thanks! Your checkout was completed. The owner notification is being submitted automatically from the backend."}
           </p>
 
-          {orderId ? (
+          {order?.reference ? (
+            <p className="mt-2 text-sm text-white/60">
+              Reference:{" "}
+              <span className="font-semibold text-white">{order.reference}</span>
+            </p>
+          ) : orderId ? (
             <p className="mt-2 text-sm text-white/60">
               Reference:{" "}
               <span className="font-semibold text-white">{orderId}</span>
             </p>
           ) : null}
 
-          <div className="mt-3 text-sm">
-            {notifyState === "sending" ? (
-              <p className="text-yellow-300">
-                Submitting owner WhatsApp notification...
-              </p>
-            ) : null}
+          {!isPayFast && (
+            <div className="mt-3 text-sm">
+              {notifyState === "sending" ? (
+                <p className="text-yellow-300">
+                  Submitting owner WhatsApp notification...
+                </p>
+              ) : null}
 
-            {notifyState === "sent" ? (
-              <p className="text-green-400">
-                Owner WhatsApp notification accepted.
-              </p>
-            ) : null}
+              {notifyState === "sent" ? (
+                <p className="text-green-400">
+                  Owner WhatsApp notification accepted.
+                </p>
+              ) : null}
 
-            {notifyState === "error" ? (
-              <p className="text-red-400">
-                Payment page loaded, but the owner notification could not be
-                confirmed automatically.
-              </p>
-            ) : null}
-          </div>
+              {notifyState === "error" ? (
+                <p className="text-red-400">
+                  Payment page loaded, but the owner notification could not be
+                  confirmed automatically.
+                </p>
+              ) : null}
+            </div>
+          )}
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
@@ -250,16 +263,18 @@ export default function OrderSuccess() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
-              <h2 className="text-lg font-semibold">Owner notification preview</h2>
-              <p className="mt-2 text-xs text-white/60">
-                This is the message submitted to WhatsApp from the backend after
-                checkout success.
-              </p>
-              <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
-                {ownerMessage}
-              </pre>
-            </div>
+            {!isPayFast && (
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+                <h2 className="text-lg font-semibold">Owner notification preview</h2>
+                <p className="mt-2 text-xs text-white/60">
+                  This is the message submitted to WhatsApp from the backend after
+                  checkout success.
+                </p>
+                <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/60 p-4 text-xs text-white/80">
+                  {ownerMessage}
+                </pre>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
