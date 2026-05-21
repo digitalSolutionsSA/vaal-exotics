@@ -2,7 +2,8 @@ import type { Handler } from "@netlify/functions";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
-const PAYFAST_URL = "https://www.payfast.co.za/eng/process";
+const PAYFAST_URL_LIVE = "https://www.payfast.co.za/eng/process";
+const PAYFAST_URL_SANDBOX = "https://sandbox.payfast.co.za/eng/process";
 
 function getEnv() {
   return {
@@ -16,6 +17,7 @@ function getEnv() {
       process.env.URL ||
       "https://vaalexotics.co.za"
     ).replace(/\/+$/, ""),
+    PAYFAST_SANDBOX: process.env.PAYFAST_SANDBOX === "true",
   };
 }
 
@@ -210,10 +212,11 @@ export const handler: Handler = async (event) => {
   const signature = generateSignature(nonEmptyFields, env.PAYFAST_PASSPHRASE);
   nonEmptyFields.push(["signature", signature]);
 
-  console.log("[payfast-initiate] order created:", orderId, "amount:", grandTotal);
+  const payfastUrl = env.PAYFAST_SANDBOX ? PAYFAST_URL_SANDBOX : PAYFAST_URL_LIVE;
+  console.log("[payfast-initiate] order created:", orderId, "amount:", grandTotal, "sandbox:", env.PAYFAST_SANDBOX);
 
   return json(200, {
-    payfastUrl: PAYFAST_URL,
+    payfastUrl,
     fields: Object.fromEntries(nonEmptyFields),
     orderId,
   });

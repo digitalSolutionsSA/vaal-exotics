@@ -37,10 +37,13 @@ function verifySignature(rawBody: string, passphrase: string): boolean {
   return receivedSig === expectedSig;
 }
 
-async function validateWithPayFast(rawBody: string): Promise<boolean> {
+async function validateWithPayFast(rawBody: string, sandbox = false): Promise<boolean> {
+  const validateUrl = sandbox
+    ? "https://sandbox.payfast.co.za/eng/query/validate"
+    : "https://www.payfast.co.za/eng/query/validate";
   try {
     const res = await fetch(
-      "https://www.payfast.co.za/eng/query/validate",
+      validateUrl,
       {
         method: "POST",
         headers: {
@@ -242,6 +245,7 @@ export const handler: Handler = async (event) => {
   const env = {
     PAYFAST_MERCHANT_ID: process.env.PAYFAST_MERCHANT_ID ?? "",
     PAYFAST_PASSPHRASE: process.env.PAYFAST_PASSPHRASE ?? "",
+    PAYFAST_SANDBOX: process.env.PAYFAST_SANDBOX === "true",
     SUPABASE_URL: process.env.SUPABASE_URL ?? "",
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
     RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
@@ -269,7 +273,7 @@ export const handler: Handler = async (event) => {
   }
 
   // 3. Validate with PayFast servers (server-to-server)
-  const isValid = await validateWithPayFast(rawBody);
+  const isValid = await validateWithPayFast(rawBody, env.PAYFAST_SANDBOX);
   if (!isValid) {
     console.error("[payfast-itn] PayFast server validation failed");
     return { statusCode: 400, body: "Validation failed" };
