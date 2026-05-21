@@ -345,7 +345,7 @@ export const handler: Handler = async (event) => {
   const email = pfData.email_address || "";
   const phone = pfData.cell_number || "";
 
-  // Parse compact address from custom_str1
+  // Decode base64url address from custom_str1
   let address = {
     line1: "",
     line2: "",
@@ -355,32 +355,34 @@ export const handler: Handler = async (event) => {
     postalCode: "",
   };
   try {
-    const compact = JSON.parse(pfData.custom_str1 || "{}");
+    const b64 = (pfData.custom_str1 || "").replace(/-/g, "+").replace(/_/g, "/");
+    const parts = Buffer.from(b64, "base64").toString("utf8").split("|");
     address = {
-      line1: compact.l1 || "",
-      line2: compact.l2 || "",
-      suburb: compact.sb || "",
-      city: compact.ct || "",
-      province: compact.pv || "",
-      postalCode: compact.pc || "",
+      line1: parts[0] || "",
+      line2: parts[1] || "",
+      suburb: parts[2] || "",
+      city: parts[3] || "",
+      province: parts[4] || "",
+      postalCode: parts[5] || "",
     };
   } catch {
-    console.warn("[payfast-itn] Failed to parse custom_str1 (address)");
+    console.warn("[payfast-itn] Failed to decode custom_str1 (address)");
   }
 
-  // Parse compact extras from custom_str2
+  // Decode base64url extras from custom_str2
   let itemsTotal = 0;
   let courierFee = 0;
   let totalKg = 0;
   let reference = orderId;
   try {
-    const extras = JSON.parse(pfData.custom_str2 || "{}");
-    itemsTotal = parseFloat(extras.it || "0");
-    courierFee = parseFloat(extras.cf || "0");
-    totalKg = parseFloat(extras.tk || "0");
-    reference = extras.ref || orderId;
+    const b64 = (pfData.custom_str2 || "").replace(/-/g, "+").replace(/_/g, "/");
+    const parts = Buffer.from(b64, "base64").toString("utf8").split("|");
+    itemsTotal = parseFloat(parts[0] || "0");
+    courierFee = parseFloat(parts[1] || "0");
+    totalKg = parseFloat(parts[2] || "0");
+    reference = parts[3] || orderId;
   } catch {
-    console.warn("[payfast-itn] Failed to parse custom_str2 (extras)");
+    console.warn("[payfast-itn] Failed to decode custom_str2 (extras)");
   }
 
   // Build email items from Supabase order_items

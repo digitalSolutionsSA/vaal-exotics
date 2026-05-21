@@ -166,23 +166,35 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  // Compact address JSON stored in custom_str1 (255 char limit)
-  const addrStr = JSON.stringify({
-    l1: String(address?.line1 || "").slice(0, 50),
-    l2: String(address?.line2 || "").slice(0, 30),
-    sb: String(address?.suburb || "").slice(0, 30),
-    ct: String(address?.city || "").slice(0, 30),
-    pv: String(address?.province || "").slice(0, 20),
-    pc: String(address?.postalCode || "").slice(0, 10),
-  }).slice(0, 255);
+  // Encode address as base64url (WAF-safe — no JSON braces/quotes/colons)
+  const addrRaw = [
+    String(address?.line1 || "").slice(0, 60),
+    String(address?.line2 || "").slice(0, 40),
+    String(address?.suburb || "").slice(0, 40),
+    String(address?.city || "").slice(0, 40),
+    String(address?.province || "").slice(0, 30),
+    String(address?.postalCode || "").slice(0, 10),
+  ].join("|");
+  const addrStr = Buffer.from(addrRaw)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")
+    .slice(0, 255);
 
-  // Compact totals + display reference stored in custom_str2 (255 char limit)
-  const extraStr = JSON.stringify({
-    it: Number(totals.itemsTotal || 0).toFixed(2),
-    cf: Number(totals.courierFee || 0).toFixed(2),
-    tk: Number(totals.totalKg || 0),
-    ref: String(reference).slice(0, 20),
-  }).slice(0, 255);
+  // Encode extra totals + reference as base64url
+  const extraRaw = [
+    Number(totals.itemsTotal || 0).toFixed(2),
+    Number(totals.courierFee || 0).toFixed(2),
+    String(totals.totalKg || 0),
+    String(reference).slice(0, 20),
+  ].join("|");
+  const extraStr = Buffer.from(extraRaw)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")
+    .slice(0, 255);
 
   // Normalise phone to 10-digit SA format
   const rawPhone = String(customer.phone || "").replace(/\D/g, "");
