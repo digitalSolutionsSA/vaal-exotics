@@ -24,7 +24,7 @@ type ShopProduct = {
   name: string;
   category: string;
   price: number;
-  description: string | null;
+  description?: string | null;
   in_stock?: boolean | null;
   stock_count?: number | null;
   image_url?: string | null;

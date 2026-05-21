@@ -14,13 +14,14 @@ export default function OrderSuccess() {
 
   // create-checkout.ts currently sends order_id, not orderId
   const orderId = q.get("order_id") || q.get("orderId") || "";
-  const isPayFast = q.get("payment") === "payfast" || order?.paymentMethod === "payfast";
 
   const raw =
     sessionStorage.getItem("pendingOrder") ||
     sessionStorage.getItem("lastOrder");
 
   const [order] = useState<any>(() => (raw ? JSON.parse(raw) : null));
+
+  const isPayFast = q.get("payment") === "payfast" || order?.paymentMethod === "payfast";
   const [notifyState, setNotifyState] = useState<
     "idle" | "sending" | "sent" | "error"
   >("idle");

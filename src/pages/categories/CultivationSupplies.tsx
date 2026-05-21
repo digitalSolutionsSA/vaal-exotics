@@ -10,7 +10,7 @@ const CAT = CATEGORY.supplies;
 //const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
-type VariantUnit = "kg" | "l";
+type VariantUnit = "kg" | "l" | "ml";
 
 type ProductVariant = {
   id: string;
@@ -24,7 +24,7 @@ type ShopProduct = {
   name: string;
   category: string;
   price: number;
-  description: string | null;
+  description?: string | null;
   in_stock?: boolean | null;
   stock_count?: number | null;
   image_url?: string | null;
@@ -72,7 +72,7 @@ function normalizeVariants(p: ShopProduct): ProductVariant[] {
     .filter(Boolean)
     .map((x: any, i: number) => ({
       id: String(x.id ?? `${p.id}_${i}`),
-      unit: (x.unit === "l" ? "l" : "kg") as VariantUnit,
+      unit: (["kg", "l", "ml"].includes(x.unit) ? x.unit : "kg") as VariantUnit,
       size: String(x.size ?? ""),
       price: Number(x.price ?? 0),
     }))
