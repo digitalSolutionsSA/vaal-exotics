@@ -107,7 +107,23 @@ function shortDesc(desc: string | null | undefined, maxLen = 68) {
   return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
 }
 
+function parseSizeNumber(size: string) {
+  const cleaned = String(size ?? "").trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeChargeableKg(variant: ProductVariant | null) {
+  if (!variant) return 1;
+  const amount = parseSizeNumber(variant.size);
+  const base = amount > 0 ? amount : 1;
+  if (variant.unit === "ml") return Math.max(0.1, base / 1000);
+  return base;
+}
+
 export default function MedicinalSupplements() {
+  const cart = useCart();
+
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -159,7 +175,7 @@ export default function MedicinalSupplements() {
     return products.filter((p) => normCategory(p?.category) === want);
   }, [products]);
 
-  const { addItem } = useCart();
+
 
   const openPopup = (p: ShopProduct, idx: number) => {
     setActive(p);
@@ -167,20 +183,32 @@ export default function MedicinalSupplements() {
     setOpen(true);
   };
 
-  const addToCart = ({ product, qty, variant }: any) => {
-    const cartId = variant ? `${product.id}_${variant.id}` : product.id;
-    const variantLabel = variant ? `${variant.size}${variant.unit.toUpperCase()}` : undefined;
-    addItem(
+  const addToCart = ({
+    product,
+    qty,
+    variant,
+  }: {
+    product: ShopProduct;
+    qty: number;
+    variant?: ProductVariant | null;
+  }) => {
+    const q = Math.max(1, Number(qty || 1));
+    const v = variant ?? null;
+    const priceRaw = Number(v?.price ?? product.price ?? 0);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+    const variantLabel = v ? shortVariantLabel(v) : "";
+
+    cart.addItem(
       {
-        id: cartId,
-        name: product.name,
-        price: variant ? variant.price : Number(product.price ?? 0),
+        id: `${product.id}:${v?.id ?? "base"}`,
+        name: v ? `${product.name} (${variantLabel})` : product.name,
+        price,
+        chargeableKg: computeChargeableKg(v),
         category: product.category,
-        size: variant?.size,
+        size: v?.size ?? "",
         variantLabel,
-        chargeableKg: 0,
       },
-      qty ?? 1
+      q
     );
   };
 

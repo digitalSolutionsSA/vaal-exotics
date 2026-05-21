@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import suppliesBg from "../../assets/new-bg.png";
 import ProductQuickView from "../../components/ProductQuickView";
 import { CATEGORY, normCategory } from "../../lib/category";
+import { useCart } from "../../context/cart";
 
 const CAT = CATEGORY.supplies;
 
@@ -89,7 +90,24 @@ function shortDesc(desc: string | null | undefined, maxLen = 68) {
   return t.length > maxLen ? `${t.slice(0, maxLen).trim()}…` : t;
 }
 
+function parseSizeNumber(size: string) {
+  const cleaned = String(size ?? "").trim().replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function computeChargeableKg(variant: ProductVariant | null) {
+  if (!variant) return 1;
+  const amount = parseSizeNumber(variant.size);
+  const base = amount > 0 ? amount : 1;
+  if (variant.unit === "kg") return base;
+  if (variant.unit === "l") return base;
+  return 1;
+}
+
 export default function CultivationSupplies() {
+  const cart = useCart();
+
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -147,8 +165,39 @@ export default function CultivationSupplies() {
     setOpen(true);
   };
 
-  const addToCart = ({ product, qty, variant }: any) => {
-    console.log("ADD TO CART:", { productId: product.id, qty, variant });
+  const addToCart = ({
+    product,
+    qty,
+    variant,
+  }: {
+    product: ShopProduct;
+    qty: number;
+    variant?: ProductVariant | null;
+  }) => {
+    const q = Math.max(1, Number(qty || 1));
+    const v = variant ?? null;
+
+    const priceRaw = Number(v?.price ?? product.price ?? 0);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+
+    const itemId = `${product.id}:${v?.id ?? "base"}`;
+    const variantLabel = v ? shortVariantLabel(v) : "";
+
+    const item = {
+      id: itemId,
+      name: v ? `${product.name} (${variantLabel})` : product.name,
+      price,
+      chargeableKg: computeChargeableKg(v),
+      category: product.category,
+      size: v?.size ?? "",
+      variantLabel,
+      productId: product.id,
+      variantId: v?.id ?? null,
+      variant: v,
+      imageUrl: getBestImage(product),
+    };
+
+    cart.addItem(item, q);
   };
 
   const headingShadow = "0 6px 24px rgba(0,0,0,0.65)";
