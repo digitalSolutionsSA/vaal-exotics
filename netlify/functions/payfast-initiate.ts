@@ -225,7 +225,19 @@ export const handler: Handler = async (event) => {
   nonEmptyFields.push(["signature", signature]);
 
   const payfastUrl = env.PAYFAST_SANDBOX ? PAYFAST_URL_SANDBOX : PAYFAST_URL_LIVE;
-  console.log("[payfast-initiate] order created:", orderId, "amount:", grandTotal, "sandbox:", env.PAYFAST_SANDBOX);
+
+  // Build the raw param string so it's visible in Netlify logs for debugging
+  const debugParamString = nonEmptyFields
+    .filter(([k]) => k !== "signature")
+    .map(([k, v]) => `${k}=${pfEncode(v)}`)
+    .join("&");
+
+  console.log("[payfast-initiate] orderId:", orderId);
+  console.log("[payfast-initiate] amount:", grandTotal, "sandbox:", env.PAYFAST_SANDBOX);
+  console.log("[payfast-initiate] payfastUrl:", payfastUrl);
+  console.log("[payfast-initiate] param string for signature (pre-passphrase):", debugParamString);
+  console.log("[payfast-initiate] signature:", signature);
+  console.log("[payfast-initiate] all field keys:", nonEmptyFields.map(([k]) => k).join(", "));
 
   return json(200, {
     payfastUrl,
