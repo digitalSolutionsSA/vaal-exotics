@@ -62,6 +62,17 @@ function json(statusCode: number, body: Record<string, unknown>) {
   };
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function extractProductId(raw: unknown): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  // Cart item ids may be "uuid:base" or "uuid:variantId" — strip suffix
+  const base = s.includes(":") ? s.split(":")[0] : s;
+  return UUID_RE.test(base) ? base : null;
+}
+
 function isShippingItem(it: any): boolean {
   const id = String(it?.id ?? it?.productId ?? it?.product_id ?? "").toLowerCase();
   const name = String(it?.name ?? "").toLowerCase();
@@ -151,7 +162,7 @@ export const handler: Handler = async (event) => {
   if (productItems.length) {
     const orderItems = productItems.map((it: any) => ({
       order_id: orderId,
-      product_id: it.product_id ?? it.productId ?? null,
+      product_id: extractProductId(it.product_id ?? it.productId ?? it.id),
       name: String(it.name || "Product"),
       qty: Math.max(1, Math.round(Number(it.qty ?? it.quantity ?? 1))),
       price_cents: Math.round(Number(it.price || 0) * 100),
