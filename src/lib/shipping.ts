@@ -31,6 +31,11 @@ export type CourierFeeResult = {
 export function calcCourierFee(totalKg: number): CourierFeeResult {
   const kgUsed = Math.max(0, Number.isFinite(totalKg) ? totalKg : 0);
 
+  // No items or all items have zero chargeable weight → no courier charge
+  if (kgUsed === 0) {
+    return { courierFee: 0, bracket: "0-5kg", kgUsed };
+  }
+
   if (kgUsed <= 5) {
     return { courierFee: 100, bracket: "0-5kg", kgUsed };
   }

@@ -172,8 +172,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       0
     );
 
+    // Exclude test/dummy products from courier weight calculation
+    const isTestItem = (it: CartItem) =>
+      normalizeText(it.name).includes("test");
+
     const totalKg = items.reduce(
-      (sum, it) => sum + asFiniteNumber(it.chargeableKg) * asFiniteNumber(it.qty),
+      (sum, it) =>
+        isTestItem(it)
+          ? sum
+          : sum + asFiniteNumber(it.chargeableKg) * asFiniteNumber(it.qty),
       0
     );
 
