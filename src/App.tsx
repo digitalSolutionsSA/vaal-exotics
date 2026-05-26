@@ -43,6 +43,11 @@ function AppShell() {
 
   const [showLoader, setShowLoader] = useState(false);
 
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).gtag?.("config", "G-11J6VW61EK", { page_path: pathname });
+  }, [pathname]);
+
   const REAPPEAR_COOLDOWN_MS = 30_000;
 
   useEffect(() => {
