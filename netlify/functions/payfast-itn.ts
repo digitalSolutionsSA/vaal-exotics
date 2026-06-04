@@ -343,7 +343,7 @@ export const handler: Handler = async (event) => {
   const firstName = pfData.name_first || "";
   const lastName = pfData.name_last || "";
   const email = pfData.email_address || "";
-  const phone = pfData.cell_number || "";
+  const phone = pfData.custom_str3 || pfData.cell_number || "";
 
   // Decode base64url address from custom_str1
   let address = {

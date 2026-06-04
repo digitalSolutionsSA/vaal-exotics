@@ -3,7 +3,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_CUSTOMER = "Vaal Exotics <orders@vaalexotics.co.za>";
-const FROM_MANAGEMENT = "Vaal Exotics Orders <onboarding@resend.dev>";
+const FROM_MANAGEMENT = "Vaal Exotics Orders <orders@vaalexotics.co.za>";
 const MANAGEMENT_EMAIL = "info@vaalexotics.co.za";
 
 type OrderItem = {

@@ -229,6 +229,7 @@ export const handler: Handler = async (event) => {
     ["item_name", `Vaal Exotics Order ${reference}`],
     ["custom_str1", addrStr],
     ["custom_str2", extraStr],
+    ["custom_str3", String(customer.phone || "").trim()],
   ];
 
   const nonEmptyFields = fields.filter(([, v]) => v !== "");
