@@ -7,7 +7,6 @@ const CATEGORIES = [
   "Mushroom Cultures",
   "Mushroom Cultivation Supplies",
   "Medicinal Mushroom Supplements",
-  "Bulk Herbal Products",
 ];
 
 const LEGACY_CATEGORY_MAP: Record<string, string> = {

@@ -23,7 +23,6 @@ export type ShopProduct = {
   created_at?: string;
 };
 
-const BULK_CATEGORY = "Bulk Herbal Products";
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
@@ -95,7 +94,6 @@ export default function ProductQuickView({
   const [qty, setQty]                       = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
 
-  const isBulkHerbal = String(product.category ?? "").trim() === BULK_CATEGORY;
   const stockCount   = useMemo(() => { const n = Number(product.stock_count ?? 0); return Number.isFinite(n) ? n : 0; }, [product.stock_count]);
   const isInStock    = useMemo(() => product.in_stock === true && stockCount > 0, [product.in_stock, stockCount]);
 
@@ -129,10 +127,10 @@ export default function ProductQuickView({
   const exactPrice   = useMemo(() => variants.length > 0 ? (selectedVariant?.price ?? displayPrice) : displayPrice, [variants.length, selectedVariant, displayPrice]);
 
   const canAddToCart = useMemo(() => {
-    if (isBulkHerbal || !isInStock) return false;
+    if (!isInStock) return false;
     if (variants.length > 0 && !selectedVariant) return false;
     return qty > 0 && qty <= Math.max(stockCount, 1);
-  }, [isBulkHerbal, isInStock, variants.length, selectedVariant, qty, stockCount]);
+  }, [isInStock, variants.length, selectedVariant, qty, stockCount]);
 
   const accentColor = accent === "red" ? BRAND_RED : BRAND_BLUE;
 
@@ -144,7 +142,6 @@ export default function ProductQuickView({
   };
 
   const handleAdd = () => {
-    if (isBulkHerbal) { openWhatsApp(); setOpen(false); return; }
     if (!canAddToCart) return;
     onAddToCart?.({ product, qty, variant: selectedVariant });
     setOpen(false);
@@ -284,22 +281,20 @@ export default function ProductQuickView({
               )}
 
               {/* Quantity stepper */}
-              {!isBulkHerbal && (
-                <div className="mt-3">
-                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/35">Quantity</label>
-                  <div className="inline-flex items-center overflow-hidden rounded-xl border border-black/10 bg-white">
-                    <button type="button" onClick={() => setQtySafe(qty - 1)} className="flex h-9 w-9 items-center justify-center text-base text-black/40 transition hover:bg-black/5 hover:text-black">−</button>
-                    <div className="w-8 select-none text-center text-sm font-bold text-black">{qty}</div>
-                    <button type="button" onClick={() => setQtySafe(qty + 1)} className="flex h-9 w-9 items-center justify-center text-base text-black/40 transition hover:bg-black/5 hover:text-black">+</button>
-                  </div>
+              <div className="mt-3">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-black/35">Quantity</label>
+                <div className="inline-flex items-center overflow-hidden rounded-xl border border-black/10 bg-white">
+                  <button type="button" onClick={() => setQtySafe(qty - 1)} className="flex h-9 w-9 items-center justify-center text-base text-black/40 transition hover:bg-black/5 hover:text-black">−</button>
+                  <div className="w-8 select-none text-center text-sm font-bold text-black">{qty}</div>
+                  <button type="button" onClick={() => setQtySafe(qty + 1)} className="flex h-9 w-9 items-center justify-center text-base text-black/40 transition hover:bg-black/5 hover:text-black">+</button>
                 </div>
-              )}
+              </div>
 
               {/* Status */}
-              {!isBulkHerbal && !isInStock && (
+              {!isInStock && (
                 <p className="mt-3 text-xs font-semibold" style={{ color: BRAND_RED }}>Out of stock</p>
               )}
-              {!isBulkHerbal && !canAddToCart && isInStock && (
+              {!canAddToCart && isInStock && (
                 <p className="mt-1.5 text-xs text-black/35">
                   {variants.length > 0 && !selectedVariant ? "Choose a size to continue." : "Quantity exceeds stock."}
                 </p>
@@ -311,31 +306,19 @@ export default function ProductQuickView({
               <div className="mt-4 flex flex-col gap-2">
                 <button
                   type="button"
-                  disabled={!isBulkHerbal && !canAddToCart}
+                  disabled={!canAddToCart}
                   onClick={handleAdd}
                   className="flex w-full items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-extrabold text-white transition active:scale-[0.98] disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: (!isBulkHerbal && !canAddToCart) ? "rgba(0,0,0,0.07)" : BRAND_RED,
-                    color: (!isBulkHerbal && !canAddToCart) ? "rgba(0,0,0,0.3)" : "white",
+                    backgroundColor: !canAddToCart ? "rgba(0,0,0,0.07)" : BRAND_RED,
+                    color: !canAddToCart ? "rgba(0,0,0,0.3)" : "white",
                   }}
                 >
-                  {isBulkHerbal ? (
-                    <>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.845L.057 23.571a.75.75 0 00.906.94l5.91-1.553A11.942 11.942 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
-                      </svg>
-                      Enquire via WhatsApp
-                    </>
-                  ) : (
-                    <>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                        <path d="M1 1h4l2.68 13.39a2 2 0 001.99 1.61h9.72a2 2 0 001.99-1.61L23 6H6"/>
-                      </svg>
-                      Add to cart
-                    </>
-                  )}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 001.99 1.61h9.72a2 2 0 001.99-1.61L23 6H6"/>
+                  </svg>
+                  Add to cart
                 </button>
 
                 <button

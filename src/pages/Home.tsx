@@ -1,10 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Hero from "../components/layout/Hero";
 import FeaturedCategories from "../components/home/FeaturedCategories";
 import ReviewsSection from "../components/home/ReviewsSection";
 import Footer from "../components/layout/Footer";
 
 export default function Home() {
+  const reviewsSectionRef = useRef<HTMLElement>(null);
+  const [reviewsVisible, setReviewsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = reviewsSectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setReviewsVisible(true); },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflowY;
     const prevBodyOverflow = document.body.style.overflowY;
@@ -60,9 +74,9 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="snap-start min-h-[100svh] bg-transparent flex items-center justify-center">
+        <section ref={reviewsSectionRef} className="snap-start min-h-[100svh] bg-transparent flex items-center justify-center">
           <div className="w-full bg-transparent">
-            <ReviewsSection sectionVisible={true} />
+            <ReviewsSection sectionVisible={reviewsVisible} />
           </div>
         </section>
 

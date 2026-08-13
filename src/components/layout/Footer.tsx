@@ -43,7 +43,7 @@ export default function Footer() {
               <p
                 className={`mt-2 text-sm sm:text-base leading-relaxed ${GRADIENT_TEXT} opacity-90`}
               >
-                New products, limited grow kits, bulk herbal drops, and discounts. No spam. No
+                New products, limited grow kits, and discounts. No spam. No
                 nonsense.
               </p>
 
@@ -121,14 +121,6 @@ export default function Footer() {
                       to="/mushrooms/medicinal-supplements"
                     >
                       Medicinal Supplements
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      className={`${GRADIENT_TEXT} hover:opacity-80 transition`}
-                      to="/bulk-herbal"
-                    >
-                      Bulk Herbal
                     </Link>
                   </li>
                 </ul>

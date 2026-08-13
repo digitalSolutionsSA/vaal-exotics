@@ -36,9 +36,6 @@ export default function Products() {
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const BULK_CATEGORY = "Bulk Herbal Products";
-  const bulkNorm = normCategory(BULK_CATEGORY);
-
   // ✅ Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
@@ -58,19 +55,14 @@ export default function Products() {
         return;
       }
 
-      // Filter active + exclude bulk herbal from All Products
-      const cleaned = (data ?? []).filter((p: any) => {
-        if (p?.active === false) return false;
-        if (normCategory(p?.category) === bulkNorm) return false;
-        return true;
-      });
+      const cleaned = (data ?? []).filter((p: any) => p?.active !== false);
 
       setProducts(cleaned as any[]);
       setLoading(false);
     };
 
     fetchProducts();
-  }, [bulkNorm]);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {

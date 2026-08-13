@@ -24,9 +24,9 @@ const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const AdminProducts = lazy(() => import("./pages/AdminProducts"));
 const ClientAdminLogin = lazy(() => import("./pages/ClientAdminLogin"));
 
-// Admin wrappers
-import RequireAdmin from "./components/admin/RequireAdmin";
-import AdminLayout from "./components/admin/AdminLayout";
+// Admin wrappers — lazy so they never land in the main bundle
+const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin"));
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 
 // Category pages
 const GrowKits = lazy(() => import("./pages/categories/GrowKits"));
@@ -35,7 +35,6 @@ const Cultures = lazy(() => import("./pages/categories/Cultures"));
 const SpecialOffers = lazy(() => import("./pages/categories/SpecialOffers"));
 const CultivationSupplies = lazy(() => import("./pages/categories/CultivationSupplies"));
 const MedicinalSupplements = lazy(() => import("./pages/categories/MedicinalSupplements"));
-const BulkHerbal = lazy(() => import("./pages/categories/BulkHerbal"));
 
 function AppShell() {
   const { pathname } = useLocation();
@@ -158,7 +157,6 @@ function AppShell() {
               path="/mushrooms/medicinal-supplements"
               element={<MedicinalSupplements />}
             />
-            <Route path="/bulk-herbal" element={<BulkHerbal />} />
 
             {/* Direct routes */}
             <Route path="/special-offers" element={<SpecialOffers />} />
@@ -173,7 +171,6 @@ function AppShell() {
               path="/shop/medicinal-supplements"
               element={<MedicinalSupplements />}
             />
-            <Route path="/shop/bulk-herbal" element={<BulkHerbal />} />
 
             {/* Legacy redirects */}
             <Route
@@ -188,7 +185,6 @@ function AppShell() {
               path="/medicinal"
               element={<Navigate to="/mushrooms/medicinal-supplements" replace />}
             />
-            <Route path="/herbal" element={<Navigate to="/bulk-herbal" replace />} />
 
             {/* Optional redirects for old / alternate specials links */}
             <Route

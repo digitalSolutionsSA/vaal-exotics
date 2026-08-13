@@ -73,7 +73,7 @@ export default function About() {
 
             <p className="mt-4">
               From grow kits and cultivation supplies to medicinal mushrooms
-              and bulk herbal products, quality always comes first.
+              quality always comes first.
             </p>
           </section>
 

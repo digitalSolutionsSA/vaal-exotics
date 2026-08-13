@@ -159,9 +159,6 @@ export default function Navbar() {
                 SPECIAL OFFERS
               </NavLink>
 
-              <NavLink to="/bulk-herbal" className={navLink}>
-                BULK HERBAL
-              </NavLink>
               <NavLink to="/faq" className={navLink}>
                 FAQ
               </NavLink>
@@ -255,9 +252,6 @@ export default function Navbar() {
                     SPECIAL OFFERS
                   </NavLink>
 
-                  <NavLink to="/bulk-herbal" className={navLink}>
-                    BULK HERBAL
-                  </NavLink>
                   <NavLink to="/faq" className={navLink}>
                     FAQ
                   </NavLink>

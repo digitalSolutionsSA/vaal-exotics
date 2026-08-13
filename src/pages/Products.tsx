@@ -174,9 +174,6 @@ export default function Products() {
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [sort, setSort] = useState<SortOption>("featured");
 
-  const BULK_CATEGORY = "Bulk Herbal Products";
-  const bulkNorm = normCategory(BULK_CATEGORY);
-
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<ShopProduct | null>(null);
   const [activeAccent, setActiveAccent] = useState<"red" | "blue">("blue");
@@ -208,10 +205,7 @@ export default function Products() {
 
     const cleaned = (data ?? [])
       .map(normalizeProductRow)
-      .filter((p: any) => {
-        if (normCategory(p?.category) === bulkNorm) return false;
-        return true;
-      }) as ShopProduct[];
+      .filter((p) => normCategory(p.category) !== "bulk herbal products") as ShopProduct[];
 
     setProducts(cleaned);
 
@@ -228,7 +222,7 @@ export default function Products() {
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bulkNorm]);
+  }, []);
 
   useEffect(() => {
     function onDown(e: MouseEvent) {

@@ -7,8 +7,6 @@ const culturesImg = "/categories/liquid.webp";
 const specialImg = "/categories/special-bg.webp";
 const suppliesImg = "/categories/supplies-bg.webp";
 const medicinalImg = "/categories/medicinal-bg.webp";
-const herbalImg = "/categories/herbal-bg.webp";
-
 type Cat = {
   title: string;
   subtitle: string;
@@ -59,13 +57,6 @@ const CATS: Cat[] = [
     bullets: ["Everyday support", "Easy routines", "Trusted ingredients"],
     to: "/shop/medicinal-supplements",
     image: medicinalImg,
-  },
-  {
-    title: "Bulk Herbal",
-    subtitle: "Bulk herbs & botanicals for serious stock-ups.",
-    bullets: ["Bulk-friendly", "Great value", "Wide selection"],
-    to: "/shop/bulk-herbal",
-    image: herbalImg,
   },
 ];
 
@@ -250,7 +241,7 @@ export default function FeaturedCategories() {
       <div className="w-full px-4 sm:px-10 xl:px-16 py-10 sm:py-20 relative z-10">
         <AnimatedHeading />
 
-        <div className="grid gap-3 sm:gap-5 xl:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+        <div className="grid gap-3 sm:gap-5 xl:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {CATS.map((cat, i) => (
             <AnimatedCard key={cat.title} cat={cat} delay={i * 140} />
           ))}

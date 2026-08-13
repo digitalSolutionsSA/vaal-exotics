@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /** ── Star rating ────────────────────────────────────────────────────────── */
 function Stars({ rating }: { rating: number }) {
@@ -51,16 +51,6 @@ const REVIEWS = [
     initials: "PK",
   },
   {
-    name: "Johan V.",
-    location: "Pretoria",
-    rating: 5,
-    title: "Fantastic bulk herbs",
-    body: "Ordered a large batch of bulk botanicals for my wellness business. Great value, well sealed, and labelled clearly. Will be placing a standing monthly order.",
-    product: "Bulk Herbal",
-    date: "Feb 2025",
-    initials: "JV",
-  },
-  {
     name: "Anika R.",
     location: "Stellenbosch",
     rating: 5,
@@ -110,16 +100,6 @@ const REVIEWS = [
     product: "Grow Kits",
     date: "Sep 2024",
     initials: "KB",
-  },
-  {
-    name: "Zanele D.",
-    location: "Sandton",
-    rating: 5,
-    title: "Great value in bulk",
-    body: "Bulk herbs were well sealed, consistent quality, and labelled nicely. Perfect for my wellness blends.",
-    product: "Bulk Herbal",
-    date: "Jan 2025",
-    initials: "ZD",
   },
   {
     name: "Ahmed R.",
@@ -174,10 +154,9 @@ function ReviewCard({
       onClick={onOpen}
       className={[
         "group text-left select-none",
-        "w-[320px] sm:w-[380px] md:w-[420px]",
-        "rounded-3xl overflow-hidden",
+        "w-[240px] sm:w-[340px] md:w-[420px]",
+        "rounded-2xl sm:rounded-3xl overflow-hidden",
         "border border-white/12",
-        "backdrop-blur-md",
         "transition",
       ].join(" ")}
       style={{
@@ -188,16 +167,16 @@ function ReviewCard({
       aria-label={`Open review by ${r.name}`}
     >
       <div
-        className="px-6 pt-5 pb-4"
+        className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4"
         style={{
           borderBottom: "1px solid rgba(255,255,255,0.08)",
           background:
             "linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div
-            className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-extrabold text-white flex-shrink-0"
+            className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-xs sm:text-sm font-extrabold text-white flex-shrink-0"
             style={{
               background: "rgba(210,44,38,0.32)",
               border: "2px solid rgba(210,44,38,0.7)",
@@ -208,32 +187,41 @@ function ReviewCard({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="font-extrabold text-white leading-tight truncate">
+            <div className="text-sm sm:text-base font-extrabold text-white leading-tight truncate">
               {r.name}
             </div>
-            <div className="text-xs text-white/55 mt-0.5 truncate">
+            <div className="text-[10px] sm:text-xs text-white/55 mt-0.5 truncate">
               {r.location} · {r.date}
             </div>
           </div>
 
-          <ReviewPill label={r.product} />
+          <span
+            className="hidden sm:inline text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg flex-shrink-0"
+            style={{
+              background: "rgba(255,255,255,0.10)",
+              color: "rgba(255,255,255,0.72)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          >
+            {r.product}
+          </span>
         </div>
       </div>
 
-      <div className="px-6 pt-5 pb-6">
+      <div className="px-4 sm:px-6 pt-3 sm:pt-5 pb-4 sm:pb-6">
         <Stars rating={r.rating} />
 
-        <div className="mt-3 text-[15px] font-extrabold text-white leading-snug line-clamp-1">
-          “{r.title}”
+        <div className="mt-2 sm:mt-3 text-[13px] sm:text-[15px] font-extrabold text-white leading-snug line-clamp-1">
+          "{r.title}"
         </div>
 
-        <div className="mt-2 text-sm text-white/75 leading-relaxed line-clamp-3">
+        <div className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-white/75 leading-relaxed line-clamp-2 sm:line-clamp-3">
           {r.body}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-3 sm:mt-4 flex items-center gap-1.5 sm:gap-2">
           <svg
-            className="w-4 h-4 text-emerald-400"
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -243,7 +231,7 @@ function ReviewCard({
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-xs text-emerald-400 font-semibold">
+          <span className="text-[10px] sm:text-xs text-emerald-400 font-semibold">
             Verified purchase
           </span>
         </div>
@@ -283,9 +271,7 @@ function useMarqueePx({
     const ro = new ResizeObserver(compute);
     if (groupRef.current) ro.observe(groupRef.current);
 
-    window.addEventListener("resize", compute);
     return () => {
-      window.removeEventListener("resize", compute);
       ro.disconnect();
     };
   }, [enabled, speedPxPerSec, groupRef]);
@@ -326,7 +312,7 @@ function ReviewModal({
               Review
             </div>
             <div className="mt-1 text-2xl font-extrabold text-white">
-              “{review.title}”
+              "{review.title}"
             </div>
             <div className="mt-2 text-sm text-white/55">
               {review.name} · {review.location} · {review.date} ·{" "}
@@ -582,16 +568,7 @@ export default function ReviewsSection({
           </div>
         </div>
 
-        <style>{`
-          @keyframes marqueePx {
-            0%   { transform: translate3d(0,0,0); }
-            100% { transform: translate3d(calc(-1 * var(--shift)),0,0); }
-          }
-          @keyframes marqueePxReverse {
-            0%   { transform: translate3d(calc(-1 * var(--shift)),0,0); }
-            100% { transform: translate3d(0,0,0); }
-          }
-        `}</style>
+
       </div>
 
       <ReviewModal open={open} onClose={closeReview} review={active} />

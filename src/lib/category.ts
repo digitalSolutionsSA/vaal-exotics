@@ -7,7 +7,6 @@ export const CATEGORY = {
   cultures: "Mushroom Cultures",
   supplies: "Mushroom Cultivation Supplies",
   medicinal: "Medicinal Mushroom Supplements",
-  bulk: "Bulk Herbal Products",
 } as const;
 
 export const CATEGORIES = Object.values(CATEGORY);
