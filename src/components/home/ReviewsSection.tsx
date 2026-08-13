@@ -123,21 +123,6 @@ const REVIEWS = [
   },
 ];
 
-function ReviewPill({ label }: { label: string }) {
-  return (
-    <span
-      className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg"
-      style={{
-        background: "rgba(255,255,255,0.10)",
-        color: "rgba(255,255,255,0.72)",
-        border: "1px solid rgba(255,255,255,0.10)",
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
 const CARD_BG =
   "linear-gradient(135deg, rgba(210,44,38,0.10) 0%, rgba(47,77,122,0.10) 55%, rgba(255,255,255,0.06) 100%)";
 

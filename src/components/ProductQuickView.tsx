@@ -26,14 +26,6 @@ export type ShopProduct = {
 const BRAND_RED = "#C43A2F";
 const BRAND_BLUE = "#2F4D7A";
 
-const OWNER_WHATSAPP =
-  (import.meta as any).env?.VITE_VAAL_EXOTICS_WHATSAPP ||
-  (import.meta as any).env?.VITE_SHOP_WHATSAPP ||
-  "";
-
-function toWaDigits(n: string) {
-  return String(n || "").replace(/[^\d]/g, "");
-}
 function formatZar(value: any) {
   const n = Number(value);
   return Number.isFinite(n) ? `R${n.toFixed(2)}` : "R0.00";
@@ -133,13 +125,6 @@ export default function ProductQuickView({
   }, [isInStock, variants.length, selectedVariant, qty, stockCount]);
 
   const accentColor = accent === "red" ? BRAND_RED : BRAND_BLUE;
-
-  const openWhatsApp = () => {
-    const digits = toWaDigits(OWNER_WHATSAPP);
-    if (!digits) { alert("Missing WhatsApp number."); return; }
-    const vt = selectedVariant ? ` (${selectedVariant.size}${selectedVariant.unit.toUpperCase()})` : "";
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(`Hi Vaal Exotics, I'd like to enquire about ${product.name}${vt}.`)}`, "_blank", "noopener,noreferrer");
-  };
 
   const handleAdd = () => {
     if (!canAddToCart) return;
