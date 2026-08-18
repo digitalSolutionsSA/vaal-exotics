@@ -112,7 +112,7 @@ export default function Hero() {
             ref={mushroomBtnRef}
             className="grid grid-cols-1 sm:flex sm:flex-nowrap gap-3 w-full will-change-transform"
           >
-            {CATEGORIES.map((cat, i) => (
+            {CATEGORIES.map((cat) => (
               <Link
                 key={cat.to}
                 to={cat.to}
