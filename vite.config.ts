@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
+    target: 'es2020',
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -16,7 +18,6 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react')) {
             return 'vendor-icons';
           }
-          // Admin pages in their own chunk — never loaded by regular visitors
           if (id.includes('/pages/Admin') || id.includes('/components/admin/')) {
             return 'admin';
           }

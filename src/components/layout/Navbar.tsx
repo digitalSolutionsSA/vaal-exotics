@@ -84,7 +84,7 @@ export default function Navbar() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="h-20 flex items-center justify-between gap-4">
             <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Home">
-              <img src={logo} alt="Vaal Exotics" className="h-14 w-auto object-contain" />
+              <img src={logo} alt="Vaal Exotics" className="h-14 w-auto object-contain" width="120" height="56" />
               <span className="hidden md:block text-black font-extrabold tracking-widest"></span>
             </Link>
 

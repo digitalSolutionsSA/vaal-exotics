@@ -91,7 +91,7 @@ function AnimatedHeading() {
         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
         opacity: inView ? 1 : 0,
         transform: inView ? "translateY(0px)" : "translateY(-18px)",
-        willChange: "opacity, transform",
+        willChange: inView ? "auto" : "opacity, transform",
       }}
     >
       <h2
@@ -160,7 +160,7 @@ function AnimatedCard({ cat, delay }: { cat: Cat; delay: number }) {
         transform: inView
           ? "translateY(0px) scale(1)"
           : "translateY(-70px) scale(0.99)",
-        willChange: "opacity, transform",
+        willChange: inView ? "auto" : "opacity, transform",
       }}
     >
       <div

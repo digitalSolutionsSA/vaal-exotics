@@ -1,11 +1,19 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef } from "react";
 
+const CATEGORIES = [
+  { label: "Grow Kits",             to: "/mushrooms/grow-kits",             bg: "#2F4D7A" },
+  { label: "Grain",                 to: "/mushrooms/grain",                 bg: "#C43A2F" },
+  { label: "Cultures",              to: "/mushrooms/cultures",              bg: "#2F4D7A" },
+  { label: "Cultivation Supplies",  to: "/mushrooms/cultivation-supplies",  bg: "#C43A2F" },
+  { label: "Medicinal Supplements", to: "/mushrooms/medicinal-supplements", bg: "#2F4D7A" },
+];
+
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const vaalRef = useRef<HTMLHeadingElement>(null);
   const exoticsRef = useRef<HTMLHeadingElement>(null);
-  const mushroomBtnRef = useRef<HTMLAnchorElement>(null);
+  const mushroomBtnRef = useRef<HTMLDivElement>(null);
   const bgRef = useRef<HTMLDivElement>(null);
   const heightRef = useRef(0);
 
@@ -99,26 +107,33 @@ export default function Hero() {
             </h1>
           </div>
 
-          {/* Button below the heading */}
-          <Link
+          {/* Category buttons */}
+          <div
             ref={mushroomBtnRef}
-            to="/products"
-            className="
-              inline-flex items-center justify-center
-              w-[72vw] py-4
-              text-sm sm:text-base
-              font-black tracking-[0.12em] uppercase
-              bg-[#C43A2F] text-white
-              hover:brightness-110 hover:scale-[1.02]
-              active:scale-[0.98]
-              shadow-xl will-change-transform
-            "
-            style={{
-              fontFamily: "Montserrat, sans-serif",
-            }}
+            className="grid grid-cols-1 sm:flex sm:flex-nowrap gap-3 w-full will-change-transform"
           >
-            SHOP MUSHROOM RANGE
-          </Link>
+            {CATEGORIES.map((cat, i) => (
+              <Link
+                key={cat.to}
+                to={cat.to}
+                className={`
+                  inline-flex items-center justify-center
+                  sm:flex-1 min-w-0
+                  px-5 py-3
+                  text-xs sm:text-sm
+                  font-black tracking-[0.1em] uppercase
+                  border border-white/40 text-white
+                  hover:brightness-110 hover:scale-[1.03]
+                  active:scale-[0.97]
+                  transition-all duration-200
+                  shadow-lg
+                `}
+                style={{ fontFamily: "Montserrat, sans-serif", backgroundColor: cat.bg }}
+              >
+                {cat.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </section>

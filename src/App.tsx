@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+
+const REAPPEAR_COOLDOWN_MS = 30_000;
 import { CartProvider } from "./context/cart";
 
 import Navbar from "./components/layout/Navbar";
@@ -47,8 +49,6 @@ function AppShell() {
     (window as any).gtag?.("config", "G-11J6VW61EK", { page_path: pathname });
   }, [pathname]);
 
-  const REAPPEAR_COOLDOWN_MS = 30_000;
-
   useEffect(() => {
     const sessionKey = "vaalexotics_session_loaded";
     const lastSeenKey = "vaalexotics_last_seen";
@@ -88,11 +88,11 @@ function AppShell() {
     };
   }, []);
 
-  const handleLoaderDone = () => {
+  const handleLoaderDone = useCallback(() => {
     sessionStorage.setItem("vaalexotics_session_loaded", "true");
     localStorage.setItem("vaalexotics_last_seen", String(Date.now()));
     setShowLoader(false);
-  };
+  }, []);
 
   if (showLoader) {
     return <Loader images={[]} onDone={handleLoaderDone} />;

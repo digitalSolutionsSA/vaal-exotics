@@ -1,7 +1,7 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /** ── Star rating ────────────────────────────────────────────────────────── */
-function Stars({ rating }: { rating: number }) {
+const Stars = memo(function Stars({ rating }: { rating: number }) {
   return (
     <div className="flex gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -16,7 +16,7 @@ function Stars({ rating }: { rating: number }) {
       ))}
     </div>
   );
-}
+});
 
 /** ── Review data ────────────────────────────────────────────────────────── */
 const REVIEWS = [
@@ -126,7 +126,7 @@ const REVIEWS = [
 const CARD_BG =
   "linear-gradient(135deg, rgba(210,44,38,0.10) 0%, rgba(47,77,122,0.10) 55%, rgba(255,255,255,0.06) 100%)";
 
-function ReviewCard({
+const ReviewCard = memo(function ReviewCard({
   r,
   onOpen,
 }: {
@@ -223,7 +223,7 @@ function ReviewCard({
       </div>
     </button>
   );
-}
+});
 
 function useMarqueePx({
   groupRef,
@@ -388,11 +388,11 @@ export default function ReviewsSection({
     enabled: sectionVisible,
   });
 
-  const openReview = (r: (typeof REVIEWS)[number]) => {
+  const openReview = useCallback((r: (typeof REVIEWS)[number]) => {
     setActive(r);
     setOpen(true);
     setPaused(true);
-  };
+  }, []);
 
   const closeReview = () => {
     setOpen(false);
